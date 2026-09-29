@@ -2,7 +2,7 @@
 
 ## 应用更新
 
-- 更新仓库统一配置在 `src/shared/release-source.json`：`Pipimax36/Koala`。
+- 更新仓库统一配置在 `src/shared/release-source.json`：`Pipimax36/Koalamo`。
 - 默认启动时检查，此后每 10 分钟检查；设置中可关闭自动检查或手动检查。
 - 读取 GitHub 最新正式 Release 的版本和说明。仓库尚无 Release 时视为没有可用更新；网络错误和限流会保留错误状态。
 - 按语义版本比较，仅提示更高版本；保留完整发布标签，兼容带 `v` 和不带 `v` 的已有 Release。
