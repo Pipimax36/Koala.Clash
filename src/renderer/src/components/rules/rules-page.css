@@ -1,0 +1,217 @@
+.koala-rules-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.koala-rule-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.koala-rule-actions [data-slot='button'] {
+  min-height: 32px;
+  font-size: 12px;
+  font-weight: 400;
+}
+.koala-rule-more-menu {
+  min-width: 180px;
+  max-height: min(70vh, 420px);
+  overflow-y: auto;
+  border-radius: 8px;
+  background: var(--card);
+  backdrop-filter: none;
+}
+.koala-rule-more-menu [data-slot='dropdown-menu-item'],
+.koala-rule-more-menu [data-slot='dropdown-menu-label'] {
+  font-size: 11px;
+}
+.koala-rule-tabs {
+  margin-bottom: 14px;
+}
+.koala-rules-page-with-form {
+  overflow-y: auto;
+}
+.koala-rule-form {
+  display: grid;
+  flex-shrink: 0;
+  gap: 15px;
+  padding: 20px;
+  margin-bottom: 20px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--card);
+}
+.koala-rule-form h3 {
+  margin: 0 0 2px;
+  font-size: 12px;
+  font-weight: 500;
+}
+.koala-rule-field {
+  display: grid;
+  gap: 7px;
+  color: var(--muted-foreground);
+  font-size: 12px;
+}
+.koala-rule-field input,
+.koala-rule-field select {
+  width: 100%;
+  min-width: 0;
+  min-height: 32px;
+  padding: 5px 9px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--card);
+  color: var(--foreground);
+  font-size: 12px;
+}
+.koala-rule-form-hint,
+.koala-rule-form-error {
+  margin: 0;
+  color: var(--muted-foreground);
+  font-size: 11px;
+}
+.koala-rule-form-error {
+  color: var(--destructive);
+}
+.koala-rule-form-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+.koala-rule-form-actions [data-slot='button'] {
+  min-height: 32px;
+  font-size: 12px;
+  font-weight: 400;
+}
+.koala-rules-page-with-form .koala-rule-table {
+  flex: 0 0 auto;
+  height: 240px;
+}
+.koala-rule-search {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 7px;
+  min-height: 32px;
+  padding: 0 9px;
+  margin-bottom: 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--card);
+  color: var(--muted-foreground);
+}
+.koala-rule-search input {
+  width: 100%;
+  min-width: 0;
+  padding: 6px 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--foreground);
+  font-size: 12px;
+}
+.koala-rule-table {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+.koala-rule-table-head,
+.koala-rule-row {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr) 112px 90px;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.koala-rule-table-head {
+  flex-shrink: 0;
+  padding: 12px 9px;
+  border-bottom: 1px solid var(--border);
+  color: var(--muted-foreground);
+  font-size: 10px;
+  font-weight: 400;
+  line-height: 1.5;
+}
+.koala-rule-table-body {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+.koala-rule-row {
+  min-height: 37px;
+  padding: 10px 8px;
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+  line-height: 1.5;
+}
+.koala-rule-index,
+.koala-rule-target,
+.koala-rule-type {
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+}
+.koala-rule-index {
+  color: var(--muted-foreground);
+}
+.koala-rule-match {
+  display: block;
+  min-width: 0;
+}
+.koala-rule-match-text {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.koala-rule-count {
+  display: block;
+  color: var(--muted-foreground);
+  font-size: 11px;
+}
+.koala-rule-type {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted-foreground);
+}
+.koala-rule-type > span {
+  display: inline-block;
+  max-width: 100%;
+  padding: 3px 5px;
+  overflow: hidden;
+  border-radius: 4px;
+  background: var(--muted);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+.koala-rule-target {
+  overflow: hidden;
+  color: var(--success);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.koala-rule-empty {
+  padding: 34px 18px;
+  color: var(--muted-foreground);
+  font-size: 12px;
+  text-align: center;
+}
+.koala-rule-footer {
+  flex-shrink: 0;
+  margin-top: 16px;
+  color: var(--muted-foreground);
+  font-size: 11px;
+}
+@media (max-width: 620px) {
+  .koala-rule-table-head,
+  .koala-rule-row {
+    grid-template-columns: 36px minmax(0, 1fr) 90px 72px;
+    gap: 6px;
+  }
+}

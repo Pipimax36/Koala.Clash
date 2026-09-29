@@ -2,28 +2,16 @@ import BasePage from '@renderer/components/base/base-page'
 import { mihomoCloseAllConnections, mihomoCloseConnection } from '@renderer/utils/ipc'
 import { useConnectionsStore } from '@renderer/store/connections-store'
 import React, { useCallback, useMemo, useState } from 'react'
-import { Badge } from '@renderer/components/ui/badge'
 import { Button } from '@renderer/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger
 } from '@renderer/components/ui/dropdown-menu'
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupButton,
-  InputGroupInput
-} from '@renderer/components/ui/input-group'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from '@renderer/components/ui/select'
-import { Tabs, TabsList, TabsTrigger } from '@renderer/components/ui/tabs'
 import { calcTraffic } from '@renderer/utils/calc'
 import ConnectionItem from '@renderer/components/connections/connection-item'
 import ConnectionTable from '@renderer/components/connections/connection-table'
@@ -32,6 +20,7 @@ import ConnectionsEmpty from '@renderer/components/connections/connections-empty
 import { Virtuoso } from 'react-virtuoso'
 import dayjs from 'dayjs'
 import ConnectionDetailModal from '@renderer/components/connections/connection-detail-modal'
+import ConnectionInspector from '@renderer/components/connections/connection-inspector'
 import ConnectionSettingModal from '@renderer/components/connections/connection-setting-modal'
 import { useAppConfig } from '@renderer/hooks/use-app-config'
 import { includesIgnoreCase } from '@renderer/utils/includes'
@@ -44,27 +33,60 @@ import {
   ArrowDownWideNarrow,
   ArrowLeft,
   History,
+  Ellipsis,
   Pause,
   Play,
+  Search,
   SearchX,
   SlidersHorizontal,
   Table2,
   TableOfContents,
-  Trash2,
-  Unplug,
-  X
+  Unplug
 } from 'lucide-react'
+import '@renderer/components/connections/connections-page.css'
+
+const processKey = (connection: ControllerConnectionDetail): string =>
+  connection.metadata.processPath ||
+  connection.metadata.process ||
+  connection.metadata.sourceIP ||
+  ''
+
+const matchesConnectionQuery = (
+  connection: ControllerConnectionDetail,
+  query: string,
+  appName?: string
+): boolean =>
+  includesIgnoreCase(
+    [
+      connection.metadata.process,
+      connection.metadata.processPath,
+      appName,
+      connection.metadata.host,
+      connection.metadata.sniffHost,
+      connection.metadata.destinationIP,
+      connection.metadata.remoteDestination,
+      connection.metadata.sourceIP,
+      ...connection.chains,
+      connection.rule,
+      connection.rulePayload
+    ]
+      .filter(Boolean)
+      .join(' '),
+    query
+  )
 
 const Connections: React.FC = () => {
   const { t } = useTranslation()
   const { controledMihomoConfig } = useControledMihomoConfig()
   const { 'find-process-mode': findProcessMode = 'always' } = controledMihomoConfig || {}
   const [filter, setFilter] = useState('')
+  const [outboundFilter, setOutboundFilter] = useState<'all' | 'proxy' | 'direct'>('all')
   const { appConfig, patchAppConfig } = useAppConfig()
+  const appNames = useIconsStore((s) => s.appNames)
   const {
     connectionDirection = 'asc',
     connectionOrderBy = 'time',
-    connectionListMode = 'process',
+    connectionListMode = 'classic',
     connectionViewMode = 'list',
     connectionTableColumns = [
       'status',
@@ -97,6 +119,7 @@ const Connections: React.FC = () => {
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
   const [isSettingModalOpen, setIsSettingModalOpen] = useState(false)
   const [selected, setSelected] = useState<ControllerConnectionDetail>()
+  const [selectedId, setSelectedId] = useState<string>()
 
   const [tab, setTab] = useState('active')
   const [viewMode, setViewMode] = useState<'list' | 'table'>(connectionViewMode)
@@ -149,8 +172,7 @@ const Connections: React.FC = () => {
     >()
 
     const addToGroup = (conn: ControllerConnectionDetail, isActive: boolean) => {
-      const processPath =
-        conn.metadata.processPath || conn.metadata.process || conn.metadata.sourceIP || ''
+      const processPath = processKey(conn)
       const processName = conn.metadata.process || conn.metadata.sourceIP || ''
       const existing = groupMap.get(processPath)
       if (existing) {
@@ -192,13 +214,25 @@ const Connections: React.FC = () => {
 
   const filteredProcessGroups = useMemo(() => {
     if (filter === '') return processGroups
-    const appNames = useIconsStore.getState().appNames
+    const matchingProcessPaths = new Set<string>()
+    for (const connection of [...activeConnections, ...closedConnections]) {
+      const path = processKey(connection)
+      if (
+        matchesConnectionQuery(
+          connection,
+          filter,
+          displayAppName ? appNames[connection.metadata.processPath || ''] : undefined
+        )
+      ) {
+        matchingProcessPaths.add(path)
+      }
+    }
     return processGroups.filter((pg) => {
       const name = displayAppName && pg.processPath ? appNames[pg.processPath] : undefined
       const searchable = [pg.processName, name, pg.processPath].filter(Boolean).join(' ')
-      return includesIgnoreCase(searchable, filter)
+      return includesIgnoreCase(searchable, filter) || matchingProcessPaths.has(pg.processPath)
     })
-  }, [processGroups, filter, displayAppName])
+  }, [processGroups, filter, displayAppName, appNames, activeConnections, closedConnections])
 
   const filteredConnections = useMemo(() => {
     const connections = tab === 'active' ? activeConnections : closedConnections
@@ -208,29 +242,24 @@ const Connections: React.FC = () => {
     // When a process is selected, filter by process
     if (selectedProcess !== null) {
       filtered = filtered.filter((conn) => {
-        const connProcessPath =
-          conn.metadata.processPath || conn.metadata.process || conn.metadata.sourceIP || ''
-        return connProcessPath === selectedProcess
+        return processKey(conn) === selectedProcess
       })
     }
 
     if (filter !== '') {
       filtered = filtered.filter((connection) => {
-        const searchableFields = [
-          connection.metadata.process,
-          connection.metadata.host,
-          connection.metadata.sniffHost,
-          connection.metadata.destinationIP,
-          connection.metadata.remoteDestination,
-          connection.metadata.sourceIP,
-          connection.chains?.[0],
-          connection.rule,
-          connection.rulePayload
-        ]
-          .filter(Boolean)
-          .join(' ')
+        return matchesConnectionQuery(
+          connection,
+          filter,
+          displayAppName ? appNames[connection.metadata.processPath || ''] : undefined
+        )
+      })
+    }
 
-        return includesIgnoreCase(searchableFields, filter)
+    if (outboundFilter !== 'all') {
+      filtered = filtered.filter((connection) => {
+        const direct = connection.chains.includes('DIRECT')
+        return outboundFilter === 'direct' ? direct : !direct
       })
     }
 
@@ -275,11 +304,26 @@ const Connections: React.FC = () => {
     activeConnections,
     closedConnections,
     filter,
+    outboundFilter,
     connectionDirection,
     connectionOrderBy,
     tab,
-    selectedProcess
+    selectedProcess,
+    displayAppName,
+    appNames
   ])
+
+  const selectedConnection =
+    filteredConnections.find((connection) => connection.id === selectedId) ?? filteredConnections[0]
+
+  const handleSelectConnection = useCallback((connection: ControllerConnectionDetail) => {
+    setSelectedId(connection.id)
+  }, [])
+
+  const handleOpenDetails = useCallback((connection: ControllerConnectionDetail) => {
+    setSelected(connection)
+    setIsDetailModalOpen(true)
+  }, [])
 
   const closeAllConnections = useCallback((): void => {
     if (tab === 'active') {
@@ -316,10 +360,6 @@ const Connections: React.FC = () => {
     },
     [patchAppConfig]
   )
-
-  const handleTabChange = useCallback((value: string) => {
-    setTab(value)
-  }, [])
 
   const handleOrderByChange = useCallback(
     async (value: string) => {
@@ -360,13 +400,10 @@ const Connections: React.FC = () => {
 
   const handleProcessClick = useCallback((processPath: string) => {
     setSelectedProcess(processPath)
-    setFilter('')
-    setTab('active')
   }, [])
 
   const handleBackToProcesses = useCallback(() => {
     setSelectedProcess(null)
-    setFilter('')
   }, [])
 
   const selectedProcessAppName = useProcessAppName(
@@ -391,11 +428,6 @@ const Connections: React.FC = () => {
     [selectedProcess]
   )
 
-  const processActiveCount = useMemo(() => {
-    if (selectedProcess === null) return 0
-    return activeConnections.filter(matchesSelectedProcess).length
-  }, [activeConnections, selectedProcess, matchesSelectedProcess])
-
   const processClosedCount = useMemo(() => {
     if (selectedProcess === null) return 0
     return closedConnections.filter(matchesSelectedProcess).length
@@ -417,22 +449,26 @@ const Connections: React.FC = () => {
   )
 
   const renderConnectionItem = useCallback(
-    (i: number, connection: ControllerConnectionDetail) => {
+    (_i: number, connection: ControllerConnectionDetail) => {
       return (
         <ConnectionItem
-          setSelected={setSelected}
-          setIsDetailModalOpen={setIsDetailModalOpen}
-          displayIcon={iconEnabled}
+          displayIcon={iconEnabled && !isProcessDetailView}
           displayAppName={displayAppName}
           showProcess={!isProcessDetailView}
-          close={closeConnection}
-          index={i}
+          selected={connection.id === selectedConnection?.id}
+          onSelect={handleSelectConnection}
           key={connection.id}
           info={connection}
         />
       )
     },
-    [iconEnabled, displayAppName, isProcessDetailView, closeConnection]
+    [
+      displayAppName,
+      iconEnabled,
+      isProcessDetailView,
+      selectedConnection?.id,
+      handleSelectConnection
+    ]
   )
 
   const renderProcessItem = useCallback(
@@ -518,92 +554,168 @@ const Connections: React.FC = () => {
     t('pages.connections.title')
   )
 
+  const [downloadAmount, downloadUnit] = calcTraffic(info.downloadTotal).split(' ')
+  const [uploadAmount, uploadUnit] = calcTraffic(info.uploadTotal).split(' ')
+
   return (
     <BasePage
       title={title}
+      subtitle={t('redesign.connectionsSubtitle')}
+      contentClassName="koala-connections-page"
       header={
-        <div className="flex items-center gap-1">
-          <div className="flex h-8 items-center gap-1 whitespace-nowrap">
-            <span className="px-1 text-gray-400">
-              {'\u2191'} {calcTraffic(info.uploadTotal)}
-            </span>
-            <span className="px-1 text-gray-400">
-              {'\u2193'} {calcTraffic(info.downloadTotal)}
-            </span>
-          </div>
-          {!isProcessListView && (
-            <Button
-              className="app-nodrag shrink-0"
-              title={
-                viewMode === 'list'
-                  ? t('pages.connections.switchToTable')
-                  : t('pages.connections.switchToList')
-              }
-              size="icon-sm"
-              variant="ghost"
-              onClick={async () => {
-                const newMode = viewMode === 'list' ? 'table' : 'list'
-                setViewMode(newMode)
-                await patchAppConfig({ connectionViewMode: newMode })
-              }}
-            >
-              {viewMode === 'list' ? (
-                <Table2 className="text-lg" />
-              ) : (
-                <TableOfContents className="text-lg" />
-              )}
-            </Button>
-          )}
-          <Button
-            className="app-nodrag shrink-0"
-            title={isPaused ? t('connections.resume') : t('connections.pause')}
-            size="icon-sm"
-            variant="ghost"
-            onClick={togglePause}
-          >
-            {isPaused ? <Play className="text-lg" /> : <Pause className="text-lg" />}
+        <div className="koala-connection-header-actions">
+          <Button variant="outline" size="sm" onClick={togglePause}>
+            {isPaused ? <Play className="size-4" /> : <Pause className="size-4" />}
+            {t(isPaused ? 'redesign.resumeRefresh' : 'redesign.pauseRefresh')}
           </Button>
-          {!isProcessListView && (
-            <div className="relative flex items-center">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
               <Button
-                className="app-nodrag shrink-0"
-                title={
-                  tab === 'active'
-                    ? t('pages.connections.closeAll')
-                    : t('pages.connections.clearClosed')
-                }
+                variant="outline"
                 size="icon-sm"
-                variant="ghost"
-                onClick={() => {
-                  if (filter === '') {
-                    closeAllConnections()
-                  } else {
-                    filteredConnections.forEach((conn) => {
-                      closeConnection(conn.id)
-                    })
-                  }
+                aria-label={t('redesign.moreActions')}
+                title={t('redesign.moreActions')}
+              >
+                <Ellipsis className="size-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="koala-connection-more-menu">
+              <DropdownMenuLabel>{t('redesign.moreActions')}</DropdownMenuLabel>
+              <DropdownMenuItem onSelect={() => setTab('active')}>
+                {t('pages.connections.active')}
+                {tab === 'active' && <span className="ml-auto">✓</span>}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setTab('closed')}>
+                {t('pages.connections.closed')} · {closedConnections.length}
+                {tab === 'closed' && <span className="ml-auto">✓</span>}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onSelect={() => {
+                  const nextMode = viewMode === 'list' ? 'table' : 'list'
+                  setViewMode(nextMode)
+                  void patchAppConfig({ connectionViewMode: nextMode })
                 }}
               >
-                {tab === 'active' ? (
-                  <X className="size-4" />
+                {viewMode === 'list' ? (
+                  <Table2 className="size-4" />
                 ) : (
-                  <Trash2 className="relative -top-px size-4" />
+                  <TableOfContents className="size-4" />
                 )}
-              </Button>
-              <Badge className="absolute -top-0.5 -right-0.5 min-w-3 h-3 justify-center px-0.5 text-[8px] leading-none">
-                {filteredConnections.length}
-              </Badge>
-            </div>
-          )}
-          <Button
-            size="icon-sm"
-            className="app-nodrag shrink-0"
-            variant="ghost"
-            title={t('pages.connections.connectionSettings')}
-            onClick={() => setIsSettingModalOpen(true)}
-          >
-            <SlidersHorizontal className="text-lg" />
-          </Button>
+                {t(
+                  viewMode === 'list'
+                    ? 'pages.connections.switchToTable'
+                    : 'pages.connections.switchToList'
+                )}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onSelect={() => {
+                  setSelectedProcess(null)
+                  setOutboundFilter('all')
+                  void patchAppConfig({
+                    connectionListMode: isClassicMode ? 'process' : 'classic'
+                  })
+                }}
+              >
+                {t(
+                  isClassicMode ? 'pages.connections.processView' : 'pages.connections.classicView'
+                )}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setIsSettingModalOpen(true)}>
+                <SlidersHorizontal className="size-4" />
+                {t('pages.connections.connectionSettings')}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={!selectedConnection}
+                onSelect={() => {
+                  if (selectedConnection) handleOpenDetails(selectedConnection)
+                }}
+              >
+                {t('redesign.details')}
+              </DropdownMenuItem>
+              {!isProcessListView && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    variant="destructive"
+                    onSelect={() => {
+                      if (
+                        filter === '' &&
+                        outboundFilter === 'all' &&
+                        (isClassicMode || selectedProcess === null)
+                      ) {
+                        closeAllConnections()
+                      } else {
+                        filteredConnections.forEach((connection) => closeConnection(connection.id))
+                      }
+                    }}
+                  >
+                    {t(
+                      tab === 'active'
+                        ? 'pages.connections.closeAll'
+                        : 'pages.connections.clearClosed'
+                    )}
+                  </DropdownMenuItem>
+                </>
+              )}
+              {viewMode === 'list' && !isProcessListView && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuLabel>{t('pages.connections.sortDirection')}</DropdownMenuLabel>
+                  {(
+                    [
+                      'time',
+                      'upload',
+                      'download',
+                      'uploadSpeed',
+                      'downloadSpeed',
+                      'process'
+                    ] as const
+                  ).map((order) => (
+                    <DropdownMenuItem key={order} onSelect={() => void handleOrderByChange(order)}>
+                      {t(
+                        order === 'process'
+                          ? 'pages.connections.processName'
+                          : order === 'time'
+                            ? 'pages.connections.time'
+                            : order === 'upload'
+                              ? 'pages.connections.uploadAmount'
+                              : order === 'download'
+                                ? 'pages.connections.downloadAmount'
+                                : order === 'uploadSpeed'
+                                  ? 'pages.connections.uploadSpeed'
+                                  : 'pages.connections.downloadSpeed'
+                      )}
+                      {connectionOrderBy === order && <span className="ml-auto">✓</span>}
+                    </DropdownMenuItem>
+                  ))}
+                  <DropdownMenuItem onSelect={() => void handleDirectionToggle()}>
+                    {connectionDirection === 'asc' ? (
+                      <ArrowDownNarrowWide className="size-4" />
+                    ) : (
+                      <ArrowDownWideNarrow className="size-4" />
+                    )}
+                    {t('pages.connections.sortDirection')}
+                  </DropdownMenuItem>
+                </>
+              )}
+              {viewMode === 'table' && !isProcessListView && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuLabel>{t('pages.connections.tableColumns')}</DropdownMenuLabel>
+                  {columnOptions.map((option) => (
+                    <DropdownMenuCheckboxItem
+                      key={option.key}
+                      checked={visibleColumns.has(option.key)}
+                      onCheckedChange={(checked) => handleVisibleColumnToggle(option.key, checked)}
+                    >
+                      {option.label}
+                    </DropdownMenuCheckboxItem>
+                  ))}
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       }
     >
@@ -613,182 +725,124 @@ const Connections: React.FC = () => {
       {isSettingModalOpen && (
         <ConnectionSettingModal onClose={() => setIsSettingModalOpen(false)} />
       )}
-      <div className="overflow-x-auto sticky top-0 z-40">
-        <div className="flex px-2 pb-2 gap-2">
-          {isProcessListView ? (
-            <>
-              <div className="flex h-8 items-center">
-                <span className="mr-2 text-sm text-muted-foreground whitespace-nowrap">
-                  {t('pages.connections.processes')}
-                </span>
-                <Badge variant="default" className="min-w-5 justify-center px-1.5 leading-none">
-                  {processGroups.length}
-                </Badge>
-              </div>
-              <InputGroup className="h-8 w-45 min-w-30">
-                <InputGroupInput
-                  className="h-8 text-sm"
-                  value={filter}
-                  placeholder={t('common.filter')}
-                  onChange={(event) => setFilter(event.target.value)}
-                />
-                <InputGroupAddon align="inline-end">
-                  <InputGroupButton
-                    size="icon-xs"
-                    variant="ghost"
-                    className={filter ? '' : 'opacity-0 pointer-events-none'}
-                    disabled={!filter}
-                    aria-label="Clear filter"
-                    onClick={() => setFilter('')}
-                  >
-                    <X className="text-base" />
-                  </InputGroupButton>
-                </InputGroupAddon>
-              </InputGroup>
-            </>
-          ) : (
-            <>
-              {!isClassicMode && (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="gap-1 shrink-0"
-                  onClick={handleBackToProcesses}
-                >
-                  <ArrowLeft className="size-4" />
-                  {t('pages.connections.backToProcesses')}
-                </Button>
-              )}
-              <Tabs value={tab} onValueChange={handleTabChange} className="w-fit">
-                <TabsList>
-                  <TabsTrigger value="active" className="gap-2">
-                    <Badge variant="default" className="min-w-5 justify-center px-1 leading-none">
-                      {isClassicMode ? activeConnections.length : processActiveCount}
-                    </Badge>
-                    <span>{t('pages.connections.active')}</span>
-                  </TabsTrigger>
-                  <TabsTrigger value="closed" className="gap-2">
-                    <Badge
-                      variant="destructive"
-                      className="min-w-5 justify-center px-1 leading-none"
-                    >
-                      {isClassicMode ? closedConnections.length : processClosedCount}
-                    </Badge>
-                    <span>{t('pages.connections.closed')}</span>
-                  </TabsTrigger>
-                </TabsList>
-              </Tabs>
-              <InputGroup className="h-8 w-45 min-w-30">
-                <InputGroupInput
-                  className="h-8 text-sm"
-                  value={filter}
-                  placeholder={t('common.filter')}
-                  onChange={(event) => setFilter(event.target.value)}
-                />
-                <InputGroupAddon align="inline-end">
-                  <InputGroupButton
-                    size="icon-xs"
-                    variant="ghost"
-                    className={filter ? '' : 'opacity-0 pointer-events-none'}
-                    disabled={!filter}
-                    aria-label="Clear filter"
-                    onClick={() => setFilter('')}
-                  >
-                    <X className="text-base" />
-                  </InputGroupButton>
-                </InputGroupAddon>
-              </InputGroup>
 
-              {viewMode === 'table' && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button size="sm" variant="secondary" className="gap-1.5">
-                      <SlidersHorizontal className="text-2xl" />
-                      {t('pages.connections.tableColumns')}
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-64" aria-label="Column visibility">
-                    {columnOptions.map((option) => (
-                      <DropdownMenuCheckboxItem
-                        key={option.key}
-                        checked={visibleColumns.has(option.key)}
-                        onCheckedChange={(checked) =>
-                          handleVisibleColumnToggle(option.key, checked)
-                        }
-                      >
-                        {option.label}
-                      </DropdownMenuCheckboxItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
-
-              {viewMode === 'list' && (
-                <>
-                  <Select value={connectionOrderBy} onValueChange={handleOrderByChange}>
-                    <SelectTrigger size="sm" className="min-w-50">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent position="popper">
-                      <SelectItem value="upload">{t('pages.connections.uploadAmount')}</SelectItem>
-                      <SelectItem value="download">
-                        {t('pages.connections.downloadAmount')}
-                      </SelectItem>
-                      <SelectItem value="uploadSpeed">
-                        {t('pages.connections.uploadSpeed')}
-                      </SelectItem>
-                      <SelectItem value="downloadSpeed">
-                        {t('pages.connections.downloadSpeed')}
-                      </SelectItem>
-                      <SelectItem value="time">{t('pages.connections.time')}</SelectItem>
-                      <SelectItem value="process">{t('pages.connections.processName')}</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Button
-                    className="border flex items-center justify-center p-0 bg-clip-border"
-                    size="icon-sm"
-                    variant="secondary"
-                    onClick={handleDirectionToggle}
-                  >
-                    {connectionDirection === 'asc' ? (
-                      <ArrowDownNarrowWide className="text-lg" />
-                    ) : (
-                      <ArrowDownWideNarrow className="text-lg" />
-                    )}
-                  </Button>
-                </>
-              )}
-            </>
-          )}
+      <div className="koala-connection-stats">
+        <div>
+          <div className="koala-connection-stat-label">{t('redesign.activeConnections')}</div>
+          <div className="koala-connection-stat-value">{activeConnections.length}</div>
+        </div>
+        <div>
+          <div className="koala-connection-stat-label">{t('redesign.downloadTotal')}</div>
+          <div className="koala-connection-stat-value">
+            {downloadAmount}
+            <small>{downloadUnit}</small>
+          </div>
+        </div>
+        <div>
+          <div className="koala-connection-stat-label">{t('redesign.uploadTotal')}</div>
+          <div className="koala-connection-stat-value">
+            {uploadAmount}
+            <small>{uploadUnit}</small>
+          </div>
         </div>
       </div>
-      <div className="h-[calc(100vh-106px)] mt-px mb-2">
-        {isProcessListView ? (
-          filteredProcessGroups.length === 0 ? (
-            processesEmptyState
-          ) : (
-            <Virtuoso data={filteredProcessGroups} itemContent={renderProcessItem} />
-          )
-        ) : viewMode === 'list' ? (
-          filteredConnections.length === 0 ? (
-            connectionsEmptyState
-          ) : (
-            <Virtuoso data={filteredConnections} itemContent={renderConnectionItem} />
-          )
-        ) : (
-          <ConnectionTable
-            emptyState={connectionsEmptyState}
-            connections={filteredConnections}
-            setSelected={setSelected}
-            setIsDetailModalOpen={setIsDetailModalOpen}
-            close={closeConnection}
-            visibleColumns={visibleColumns}
-            initialColumnWidths={connectionTableColumnWidths}
-            initialSortColumn={connectionTableSortColumn}
-            initialSortDirection={connectionTableSortDirection}
-            onColumnWidthChange={handleColumnWidthChange}
-            onSortChange={handleSortChange}
+
+      <div className="koala-connection-filter-row">
+        {isProcessDetailView && (
+          <Button variant="ghost" size="sm" onClick={handleBackToProcesses}>
+            <ArrowLeft className="size-4" />
+            {t('pages.connections.backToProcesses')}
+          </Button>
+        )}
+        <label className="koala-connection-search">
+          <Search className="size-4" aria-hidden />
+          <input
+            type="search"
+            value={filter}
+            placeholder={t('redesign.searchAppsDomains')}
+            aria-label={t('redesign.searchAppsDomains')}
+            onChange={(event) => setFilter(event.target.value)}
           />
+        </label>
+        {!isProcessListView && (
+          <select
+            className="koala-connection-outbound-filter"
+            value={outboundFilter}
+            aria-label={t('redesign.allOutbound')}
+            onChange={(event) =>
+              setOutboundFilter(event.target.value as 'all' | 'proxy' | 'direct')
+            }
+          >
+            <option value="all">{t('redesign.allOutbound')}</option>
+            <option value="proxy">{t('redesign.proxyOutbound')}</option>
+            <option value="direct">{t('redesign.directOutbound')}</option>
+          </select>
+        )}
+      </div>
+
+      {isPaused && <p className="koala-connection-pause-note">{t('redesign.refreshPaused')}</p>}
+      {tab === 'closed' && !isProcessListView && (
+        <p className="koala-connection-context">
+          {t('pages.connections.closed')} · {closedConnections.length}
+        </p>
+      )}
+
+      <div className="koala-connection-master-detail" data-process-list={isProcessListView}>
+        <div className="koala-connection-list">
+          {(isProcessListView || viewMode === 'list') && (
+            <div className="koala-connection-list-head">
+              <span>
+                {isProcessListView
+                  ? t('pages.connections.processes')
+                  : t('redesign.applicationTarget')}
+              </span>
+              <span>
+                {t(isProcessListView ? 'pages.connections.title' : 'redesign.outboundColumn')}
+              </span>
+              <span>{t('pages.connections.downloadAmount')}</span>
+            </div>
+          )}
+          <div className="koala-connection-list-body">
+            {isProcessListView ? (
+              filteredProcessGroups.length === 0 ? (
+                processesEmptyState
+              ) : (
+                <Virtuoso
+                  style={{ height: '100%' }}
+                  data={filteredProcessGroups}
+                  itemContent={renderProcessItem}
+                />
+              )
+            ) : viewMode === 'list' ? (
+              filteredConnections.length === 0 ? (
+                connectionsEmptyState
+              ) : (
+                <Virtuoso
+                  style={{ height: '100%' }}
+                  data={filteredConnections}
+                  itemContent={renderConnectionItem}
+                />
+              )
+            ) : (
+              <ConnectionTable
+                emptyState={connectionsEmptyState}
+                connections={filteredConnections}
+                selectedId={selectedConnection?.id}
+                onSelect={handleSelectConnection}
+                onOpenDetails={handleOpenDetails}
+                close={closeConnection}
+                visibleColumns={visibleColumns}
+                initialColumnWidths={connectionTableColumnWidths}
+                initialSortColumn={connectionTableSortColumn}
+                initialSortDirection={connectionTableSortDirection}
+                onColumnWidthChange={handleColumnWidthChange}
+                onSortChange={handleSortChange}
+              />
+            )}
+          </div>
+        </div>
+        {!isProcessListView && (
+          <ConnectionInspector connection={selectedConnection} onClose={closeConnection} />
         )}
       </div>
     </BasePage>

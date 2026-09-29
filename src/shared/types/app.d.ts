@@ -69,6 +69,9 @@ interface AppConfig {
   useWindowFrame: boolean
   proxyInTray: boolean
   appTheme: AppTheme
+  uiDensity?: 'comfortable' | 'compact'
+  homeLayout?: 'split' | 'centered'
+  minimizeOnClose?: boolean
   customTheme?: string
   autoCheckUpdate: boolean
   silentStart: boolean

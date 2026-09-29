@@ -1,31 +1,15 @@
 import React from 'react'
-import { Card, CardContent } from '@renderer/components/ui/card'
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@renderer/components/ui/accordion'
+import { cn } from '@renderer/lib/utils'
 
 interface Props {
   title?: string
   children?: React.ReactNode
   className?: string
 }
-
-const SettingCard: React.FC<Props> = (props) => {
-  return !props.title ? (
-    <Card className={`${props.className} mx-2 mb-2`}>
-      <CardContent>{props.children}</CardContent>
-    </Card>
-  ) : (
-    <Accordion
-      className={`${props.className} mx-2 mb-2 px-6 rounded-xl border text-card-foreground shadow-sm`}
-      type="single"
-      collapsible
-      {...props}
-    >
-      <AccordionItem value={props.title}>
-        <AccordionTrigger>{props.title}</AccordionTrigger>
-        <AccordionContent>{props.children}</AccordionContent>
-      </AccordionItem>
-    </Accordion>
-  )
-}
-
+const SettingCard: React.FC<Props> = ({ title, children, className }) => (
+  <section className={cn('ui-setting-section', className)}>
+    {title && <h2 className="ui-setting-heading">{title}</h2>}
+    <div className="ui-list">{children}</div>
+  </section>
+)
 export default SettingCard

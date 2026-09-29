@@ -17,6 +17,10 @@ export async function mihomoConfig(): Promise<ControllerConfigs> {
   return ipcErrorWrapper(await window.electron.ipcRenderer.invoke('mihomoConfig'))
 }
 
+export async function getCoreDiagnostics(after?: number): Promise<CoreDiagnosticsSnapshot> {
+  return ipcErrorWrapper(await window.electron.ipcRenderer.invoke('getCoreDiagnostics', after))
+}
+
 export async function mihomoCloseConnection(id: string): Promise<void> {
   return ipcErrorWrapper(await window.electron.ipcRenderer.invoke('mihomoCloseConnection', id))
 }

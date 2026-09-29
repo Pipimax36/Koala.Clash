@@ -6,6 +6,7 @@ import { execSync } from 'child_process'
 import { getAppConfigSync } from '../config/app'
 import { checkCorePermissionSync } from '../core/manager'
 import { t } from './i18n'
+import { resolveMacCorePath } from '../core/core-permissions'
 
 export const homeDir = app.getPath('home')
 
@@ -84,18 +85,30 @@ export function mihomoCoreDir(): string {
 
 export function mihomoCorePath(core: string): string {
   if (core === 'mihomo' || core === 'mihomo-alpha') {
-    const isWin = process.platform === 'win32'
-    return path.join(mihomoCoreDir(), `${core}${isWin ? '.exe' : ''}`)
+    const source = mihomoSourcePath(core)
+    return process.platform === 'darwin' ? resolveMacCorePath(source) : source
   }
   if (core === 'system') {
     const sysPath = systemCorePath()
     if (!sysPath || !existsSync(sysPath)) {
-      const errorMsg = sysPath ? `${t('error.systemCorePathInvalid')}: ${sysPath}` : t('error.systemCorePathNotSet')
+      const errorMsg = sysPath
+        ? `${t('error.systemCorePathInvalid')}: ${sysPath}`
+        : t('error.systemCorePathNotSet')
       throw new Error(errorMsg)
     }
     return sysPath
   }
   throw new Error(t('error.corePathError'))
+}
+
+export function mihomoBundledCorePath(core: 'mihomo' | 'mihomo-alpha'): string {
+  return path.join(mihomoCoreDir(), `${core}${process.platform === 'win32' ? '.exe' : ''}`)
+}
+
+export function mihomoSourcePath(core: 'mihomo' | 'mihomo-alpha'): string {
+  const updated = path.join(dataDir(), 'cores', core)
+  if (process.platform === 'darwin' && existsSync(updated)) return updated
+  return mihomoBundledCorePath(core)
 }
 
 function systemCorePath(): string {

@@ -1,4 +1,5 @@
 import { Button } from '@renderer/components/ui/button'
+import { Spinner } from '@renderer/components/ui/spinner'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,13 +11,13 @@ import { cn } from '@renderer/lib/utils'
 import { useTranslation } from 'react-i18next'
 import { calcTraffic } from '@renderer/utils/calc'
 import dayjs from 'dayjs'
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useMemo, useState } from 'react'
 import EditFileModal from './edit-file-modal'
 import EditRulesModal from './edit-rules-modal'
 import EditInfoModal from './edit-info-modal'
-import { useSortable } from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
 import { openFile } from '@renderer/utils/ipc'
+import { useNavigate } from 'react-router-dom'
+import { toast } from 'sonner'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,16 +30,17 @@ import {
   AlertDialogTitle
 } from '@renderer/components/ui/alert-dialog'
 import {
-  Clock,
   EllipsisVertical,
   ExternalLink,
   FileText,
   FolderOpen,
   HeadsetIcon,
-  InfinityIcon,
+  Layers3,
   ListTree,
   Pencil,
   RefreshCcw,
+  Settings2,
+  ChevronRight,
   Trash2
 } from 'lucide-react'
 
@@ -62,6 +64,7 @@ interface MenuItem {
 
 const ProfileItem: React.FC<Props> = (props) => {
   const { t } = useTranslation()
+  const navigate = useNavigate()
   const {
     info,
     addProfileItem,
@@ -79,36 +82,17 @@ const ProfileItem: React.FC<Props> = (props) => {
   const [openInfoEditor, setOpenInfoEditor] = useState(false)
   const [openFileEditor, setOpenFileEditor] = useState(false)
   const [openRulesEditor, setOpenRulesEditor] = useState(false)
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform: tf,
-    transition,
-    isDragging
-  } = useSortable({
-    id: info.id
-  })
-  const transform = tf ? { x: tf.x, y: tf.y, scaleX: 1, scaleY: 1 } : null
-  const [disableSelect, setDisableSelect] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
-  const updatedFromNow = dayjs(info.updated).fromNow()
+  const updatedFromNow = info.updated ? dayjs(info.updated).fromNow() : t('redesign.notProvided')
 
   const hasLimit = total > 0
   const expired = extra?.expire ? dayjs.unix(extra.expire).isBefore(dayjs()) : false
-
-  const trafficRemaining = useMemo(() => {
-    if (info.type !== 'remote' || !extra) return null
-    if (!hasLimit) return null
-    const remaining = Math.max(0, total - usage)
-    return calcTraffic(remaining)
-  }, [info.type, extra, hasLimit, total, usage])
 
   const daysRemaining = useMemo(() => {
     if (info.type !== 'remote' || !extra) return null
     if (!extra.expire) return null
     if (expired) return '0'
-    const days = dayjs.unix(extra.expire).diff(dayjs(), 'day')
+    const days = Math.ceil(dayjs.unix(extra.expire).diff(dayjs(), 'day', true))
     return days.toString()
   }, [info.type, extra, expired])
 
@@ -125,6 +109,13 @@ const ProfileItem: React.FC<Props> = (props) => {
 
   const menuItems: MenuItem[] = useMemo(() => {
     const list: MenuItem[] = []
+    list.push({
+      key: 'nodes',
+      label: t('redesign.nodes'),
+      icon: <ChevronRight />,
+      showDivider: false,
+      variant: 'default'
+    })
     if (info.home) {
       list.push({
         key: 'home',
@@ -194,6 +185,10 @@ const ProfileItem: React.FC<Props> = (props) => {
         }
         break
       }
+      case 'nodes': {
+        navigate('/proxies', { state: { profileId: info.id } })
+        break
+      }
       case 'edit-info': {
         setOpenInfoEditor(true)
         break
@@ -225,29 +220,16 @@ const ProfileItem: React.FC<Props> = (props) => {
     }
   }
 
-  useEffect(() => {
-    if (isDragging) {
-      setTimeout(() => setDisableSelect(true), 100)
-    } else {
-      setTimeout(() => setDisableSelect(false), 100)
-    }
-  }, [isDragging])
-
   const handleSelect = (): void => {
-    if (disableSelect || switching) return
+    if (switching) return
     setSelecting(true)
-    onClick().finally(() => setSelecting(false))
+    onClick()
+      .catch((error) => toast.error(String(error)))
+      .finally(() => setSelecting(false))
   }
 
   return (
-    <div
-      className="relative col-span-1"
-      style={{
-        transform: CSS.Transform.toString(transform),
-        transition,
-        zIndex: isDragging ? 'calc(infinity)' : undefined
-      }}
-    >
+    <div className="koala-profile-detail">
       {openFileEditor && <EditFileModal id={info.id} onClose={() => setOpenFileEditor(false)} />}
       {openRulesEditor && <EditRulesModal id={info.id} onClose={() => setOpenRulesEditor(false)} />}
       {openInfoEditor && (
@@ -284,126 +266,146 @@ const ProfileItem: React.FC<Props> = (props) => {
       </AlertDialog>
 
       <div
-        role="button"
-        tabIndex={0}
-        aria-selected={isCurrent}
+        data-current={isCurrent}
         aria-busy={selecting || switching}
-        onClick={handleSelect}
-        onKeyDown={(event) => {
-          if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault()
-            handleSelect()
-          }
-        }}
-        className={cn(
-          'group relative rounded-2xl backdrop-blur-3xl border px-4 pt-3 pb-2 cursor-pointer transition-all duration-200',
-          isCurrent
-            ? 'border-stroke-profile-active bg-profile-active hover:bg-profile-active/90'
-            : 'border-stroke-profile-inactive bg-profile-inactive hover:bg-accent/60',
-          selecting && 'opacity-60 scale-[0.98]',
-          switching && 'cursor-wait'
-        )}
+        className={cn('ui-panel koala-profile-detail-panel', switching && 'cursor-wait')}
       >
-        <div ref={setNodeRef} {...attributes} {...listeners} className="w-full h-full">
-          {/* Header: logo + name + menu */}
-          <div className="flex items-center gap-2">
-            {info.logo && (
-              <img
-                src={info.logo}
-                alt=""
-                className="size-7 rounded-full object-cover shrink-0"
-                onError={(e) => {
-                  ;(e.target as HTMLImageElement).style.display = 'none'
-                }}
-              />
-            )}
-            <h3 title={info.name} className="text-sm font-semibold truncate flex-1 leading-tight">
-              {info.name}
-            </h3>
+        <div className="koala-profile-detail-top">
+          {info.logo ? (
+            <img
+              src={info.logo}
+              alt=""
+              className="koala-profile-detail-icon"
+              onError={(event) => {
+                ;(event.target as HTMLImageElement).style.display = 'none'
+              }}
+            />
+          ) : (
+            <Layers3 className="koala-profile-detail-icon" aria-hidden="true" />
+          )}
+          <span className="koala-profile-status" data-active={isCurrent}>
+            {t(isCurrent ? 'redesign.currentUse' : 'redesign.notActive')}
+          </span>
+        </div>
+        <div className="koala-profile-detail-identity">
+          <h2 title={info.name} className="koala-profile-detail-title">
+            {info.name}
+          </h2>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                size="icon-sm"
+                variant="ghost"
+                className="koala-profile-menu-trigger"
+                aria-label={t('redesign.moreSettings')}
+              >
+                <EllipsisVertical aria-hidden="true" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {menuItems.map((item) => (
+                <React.Fragment key={item.key}>
+                  <DropdownMenuItem variant={item.variant} onClick={() => onMenuAction(item.key)}>
+                    {item.icon}
+                    {item.label}
+                  </DropdownMenuItem>
+                  {item.showDivider && <DropdownMenuSeparator />}
+                </React.Fragment>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+        <p className="koala-profile-detail-subtitle">
+          {info.homeName ||
+            t(info.type === 'remote' ? 'redesign.remoteProfileLabel' : 'profile.localProfileLabel')}
+        </p>
+
+        <div className="koala-profile-quota">
+          <p>{t('profile.trafficRemaining')}</p>
+          <div className="koala-profile-quota-value">
+            <strong>
+              {hasLimit ? calcTraffic(Math.max(0, total - usage)) : t('redesign.notProvided')}
+            </strong>
+            {hasLimit && <small>/ {calcTraffic(total)}</small>}
+          </div>
+          {hasLimit && (
             <div
-              className="shrink-0 -mr-1 flex items-center"
-              onClick={(e) => e.stopPropagation()}
-              onPointerDown={(e) => e.stopPropagation()}
-            >
-              {info.type === 'remote' && (
-                <Button
-                  size="icon-sm"
-                  variant="ghost"
-                  onClick={() => onMenuAction('update')}
-                  disabled={updating}
-                >
-                  <RefreshCcw
-                    className={cn('text-base text-muted-foreground', updating && 'animate-spin')}
-                  />
-                </Button>
+              className="koala-profile-quota-track"
+              role="progressbar"
+              aria-label={t('profile.trafficRemaining')}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={Math.max(
+                0,
+                Math.min(100, Math.round(((total - usage) / total) * 100))
               )}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button size="icon-sm" variant="ghost">
-                    <EllipsisVertical className="text-base text-muted-foreground" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent
-                  align="end"
-                  onPointerDown={(e) => e.stopPropagation()}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  {menuItems.map((item) => (
-                    <React.Fragment key={item.key}>
-                      <DropdownMenuItem
-                        variant={item.variant}
-                        onClick={() => onMenuAction(item.key)}
-                      >
-                        {item.icon}
-                        {item.label}
-                      </DropdownMenuItem>
-                      {item.showDivider && <DropdownMenuSeparator />}
-                    </React.Fragment>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
+            >
+              <div
+                style={{ width: `${Math.max(0, Math.min(100, ((total - usage) / total) * 100))}%` }}
+              />
             </div>
+          )}
+          <div className="koala-profile-usage">
+            <span>
+              {t('redesign.usedTraffic')} {extra ? calcTraffic(usage) : t('redesign.notProvided')}
+            </span>
+            <span>
+              {daysRemaining !== null
+                ? t('redesign.remainingDays', { count: Number(daysRemaining) })
+                : t('redesign.notProvided')}
+            </span>
           </div>
-
-          {/* Stats: traffic remaining | days remaining */}
-          <div className="grid grid-cols-2 mt-2">
-            <div className="pr-3 border-r border-foreground/10 justify-items-center">
-              <div className="text-[11px] text-muted-foreground">
-                {t('profile.trafficRemaining')}
-              </div>
-              <div className="text-sm font-bold mt-0.5 leading-tight">
-                {hasLimit ? trafficRemaining : <InfinityIcon className="size-5" />}
-              </div>
+        </div>
+        <div className="koala-profile-summary">
+          <div>
+            <span>{t('redesign.lastUpdated')}</span>
+            <span>{updatedFromNow}</span>
+          </div>
+          {info.type === 'remote' && (
+            <div>
+              <span>{t('redesign.autoUpdate')}</span>
+              <span>
+                {info.autoUpdate
+                  ? intervalLabel || t('redesign.autoUpdate')
+                  : t('redesign.manualUpdate')}
+              </span>
             </div>
-            <div className="pl-3 justify-items-center">
-              <div className="text-[11px] text-muted-foreground">
-                {t('profile.daysRemaining')}
-              </div>
-              <div className="text-sm font-bold mt-0.5 leading-tight">
-                {extra?.expire ? daysRemaining : <InfinityIcon className="size-5" />}
-              </div>
-            </div>
-          </div>
-
-
-          {/* Footer */}
-          <div className="border-t border-foreground/10 mt-3 pt-2 flex items-center justify-between text-[11px] text-muted-foreground">
-            {info.type === 'remote' ? (
-              <>
-                <span>
-                  {t('profile.updatedAt')}: {updatedFromNow}
-                </span>
-                {intervalLabel && (
-                  <span className="flex items-center gap-1">
-                    <Clock className="size-3" />
-                    {intervalLabel}
-                  </span>
-                )}
-              </>
-            ) : (
-              <span>{t('profile.localProfileLabel')}</span>
-            )}
-          </div>
+          )}
+        </div>
+        <div className="koala-profile-actions">
+          {!isCurrent && (
+            <Button
+              size="sm"
+              variant="default"
+              disabled={switching || selecting}
+              aria-busy={selecting}
+              onClick={handleSelect}
+            >
+              {selecting ? <Spinner aria-hidden="true" /> : <Settings2 aria-hidden="true" />}
+              {t('redesign.setCurrent')}
+            </Button>
+          )}
+          {info.type === 'remote' && (
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={updating}
+              onClick={() => void onMenuAction('update')}
+            >
+              <RefreshCcw className={cn(updating && 'animate-spin')} aria-hidden="true" />
+              {t('profile.updateSubscription')}
+            </Button>
+          )}
+          {isCurrent && (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => navigate('/proxies', { state: { profileId: info.id } })}
+            >
+              {t('redesign.nodes')}
+              <ChevronRight aria-hidden="true" />
+            </Button>
+          )}
         </div>
       </div>
     </div>

@@ -197,7 +197,7 @@ export async function createProfile(item: Partial<ProfileItem>): Promise<Profile
     ua: item.ua,
     verify: item.verify ?? true,
     autoUpdate: item.autoUpdate ?? true,
-    interval: item.interval || 0,
+    interval: item.interval ?? (item.type === 'remote' && !item.id ? 24 * 60 : 0),
     useProxy: item.useProxy || false,
     updated: new Date().getTime()
   } as ProfileItem

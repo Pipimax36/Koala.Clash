@@ -2,62 +2,42 @@ import { memo, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import dayjs from 'dayjs'
-import { toast } from 'sonner'
-import {
-  Power,
-  ArrowUp,
-  ArrowDown,
-  RefreshCcw,
-  Plus,
-  ChevronRight,
-  WifiOff,
-  ExternalLink
-} from 'lucide-react'
+import { Power, ChevronRight, ExternalLink, ShieldCheck, Layers, Activity, X } from 'lucide-react'
 import BasePage from '@renderer/components/base/base-page'
 import { Button } from '@renderer/components/ui/button'
 import { Spinner } from '@renderer/components/ui/spinner'
 import EditInfoModal from '@renderer/components/profiles/edit-info-modal'
 import ProxyModeTabs from '@renderer/components/home/proxy-mode-tabs'
+import TrafficHistory from '@renderer/components/home/traffic-history'
 import OutboundModeSwitcher from '@renderer/components/sider/outbound-mode-switcher'
 import { useProxyControl } from '@renderer/hooks/use-proxy-control'
 import { useProfileConfig } from '@renderer/hooks/use-profile-config'
 import { useGroups } from '@renderer/hooks/use-groups'
 import { useTrafficStore } from '@renderer/store/traffic-store'
+import { useConnectionsStore } from '@renderer/store/connections-store'
+import { useConnectionClock } from '@renderer/store/connection-clock'
+import { Popover, PopoverContent, PopoverTrigger } from '@renderer/components/ui/popover'
+import { useOverviewStore } from '@renderer/store/overview-store'
 import { addProfileItem } from '@renderer/utils/ipc'
 import { calcTraffic } from '@renderer/utils/calc'
 
-// Module-level variable: persists across component mounts/unmounts
-let connectionStartTime: number | null = null
-
-const ConnectedTimer = memo(({ active }: { active: boolean }) => {
+const ConnectedTimer = memo(({ startedAt }: { startedAt: number | null }) => {
   const [elapsed, setElapsed] = useState(0)
-
   useEffect(() => {
-    if (!active) {
-      connectionStartTime = null
+    if (startedAt === null) {
       setElapsed(0)
       return undefined
     }
-
-    if (connectionStartTime === null) {
-      connectionStartTime = Date.now()
-    }
-
-    const updateElapsed = (): void => {
-      setElapsed(Math.floor((Date.now() - connectionStartTime!) / 1000))
-    }
-    updateElapsed()
-    const interval = setInterval(updateElapsed, 1000)
+    const update = (): void => setElapsed(Math.floor((Date.now() - startedAt) / 1000))
+    update()
+    const interval = setInterval(update, 1000)
     return () => clearInterval(interval)
-  }, [active])
-
-  const hours = Math.floor(elapsed / 3600)
-  const minutes = Math.floor((elapsed % 3600) / 60)
-  const seconds = elapsed % 60
+  }, [startedAt])
   return (
     <span>
-      {String(hours).padStart(2, '0')}:{String(minutes).padStart(2, '0')}:
-      {String(seconds).padStart(2, '0')}
+      {[Math.floor(elapsed / 3600), Math.floor((elapsed % 3600) / 60), elapsed % 60]
+        .map((value) => String(value).padStart(2, '0'))
+        .join(':')}
     </span>
   )
 })
@@ -68,18 +48,39 @@ const Home: React.FC = () => {
   const navigate = useNavigate()
   const control = useProxyControl()
   const { profileConfig, mutateProfileConfig } = useProfileConfig()
-  const { groups } = useGroups()
+  const { groups, error: groupsError, mutate: refreshGroups } = useGroups()
   const traffic = useTrafficStore((s) => s.traffic)
+  const connectionCount = useConnectionsStore((s) => s.active.length)
+  const connectionsPaused = useConnectionsStore((s) => s.isPaused)
+  const connectionStartedAt = useConnectionClock((s) => s.startedAt)
   const [editing, setEditing] = useState<ProfileItem | null>(null)
-  const [updating, setUpdating] = useState(false)
-  const [groupName, setGroupName] = useState('')
+  const groupName = useOverviewStore((s) => s.groupName)
+  const setGroupName = useOverviewStore((s) => s.selectGroup)
+  const [updatedAt, setUpdatedAt] = useState(Date.now())
+  useEffect(() => {
+    setUpdatedAt(Date.now())
+  }, [traffic, control.runtime])
   const [now, setNow] = useState(Date.now())
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 60_000)
     return () => clearInterval(id)
   }, [])
+
   const current = profileConfig?.items.find((item) => item.id === profileConfig.current)
-  const group = groups?.find((item) => item.name === groupName) ?? groups?.[0]
+  const group =
+    (control.runtime?.mode === 'global'
+      ? groups?.find((item) => item.name === 'GLOBAL')
+      : undefined) ??
+    groups?.find((item) => item.name === groupName) ??
+    groups?.[0]
+  const runtimeAvailable = Boolean(control.runtime && !control.runtimeError)
+  const nodeAvailable = runtimeAvailable && !groupsError && groups !== undefined
+  const proxyEnabled = runtimeAvailable && control.enabled
+  const selectedNode = nodeAvailable
+    ? group?.all.find((item) => item.name === group.now)
+    : undefined
+  const nodeDelay = selectedNode?.history?.at(-1)?.delay
+  const direct = control.runtime?.mode === 'direct'
   const extra = current?.extra
   const usageKnown = extra?.upload !== undefined && extra?.download !== undefined
   const used = (extra?.upload ?? 0) + (extra?.download ?? 0)
@@ -95,230 +96,336 @@ const Home: React.FC = () => {
     ? t('redesign.applying')
     : control.runtimeError
       ? t('redesign.coreUnavailable')
-      : control.enabled
-        ? t('redesign.enabled')
-        : t('redesign.disabled')
+      : !runtimeAvailable
+        ? t('redesign.loading')
+        : !hasProfiles
+          ? t('redesign.waitingProfile')
+          : proxyEnabled
+            ? t('redesign.connectionEstablished')
+            : t('redesign.proxyClosed')
+  const nodeName = !runtimeAvailable
+    ? t('redesign.unknown')
+    : direct
+      ? 'DIRECT'
+      : groupsError
+        ? t('redesign.unknown')
+        : groups === undefined
+          ? t('redesign.loading')
+          : group?.now || t('redesign.noNode')
   const newProfile = (): void =>
     setEditing({ id: '', name: '', type: 'remote', url: '', useProxy: false, autoUpdate: true })
-  const update = async (): Promise<void> => {
-    if (!current || updating) return
-    setUpdating(true)
-    try {
-      await addProfileItem(current)
-    } catch (error) {
-      toast.error(String(error))
-    } finally {
-      mutateProfileConfig()
-      setUpdating(false)
-    }
-  }
 
   return (
-    <BasePage title={t('sider.home')} contentClassName="ui-page">
+    <BasePage
+      title={t('redesign.overviewTitle')}
+      subtitle={t('redesign.homeSubtitle')}
+      header={
+        <span className="ui-description">
+          {t('redesign.updatedAt', {
+            time: runtimeAvailable ? dayjs(updatedAt).format('HH:mm') : '—'
+          })}
+        </span>
+      }
+    >
       {!profileConfig ? (
         <div role="status" className="ui-panel flex items-center gap-2">
           <Spinner />
           {t('redesign.loading')}
         </div>
-      ) : !hasProfiles ? (
-        <div className="ui-panel flex min-h-80 flex-col items-center justify-center gap-4 text-center">
-          <WifiOff className="size-10 text-muted-foreground" />
-          <h2 className="text-xl font-semibold">{t('pages.profiles.emptyTitle')}</h2>
-          <p className="ui-description">{t('pages.profiles.emptyDescription')}</p>
-          <Button onClick={newProfile} data-guide="home-add-profile-btn">
-            <Plus />
-            {t('pages.profiles.addProfile')}
-          </Button>
-        </div>
       ) : (
-        <div className="mx-auto max-w-5xl space-y-4">
-          {(control.error || control.runtimeError) && (
-            <div
-              role="alert"
-              className="ui-panel flex flex-wrap items-center gap-3 border-destructive"
-            >
-              <p className="min-w-0 flex-1 break-words text-sm">
-                {control.error || t('redesign.coreUnavailableHint')}
+        <div className="ui-home-content">
+          {(control.error || control.runtimeError || Boolean(groupsError)) && (
+            <div role="alert" className="ui-home-alert">
+              <p>
+                {control.error ||
+                  t(
+                    groupsError && !control.runtimeError
+                      ? 'redesign.nodesUnavailable'
+                      : 'redesign.coreUnavailableHint'
+                  )}
               </p>
-              <Button variant="outline" onClick={() => void control.refresh()}>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  void control.refresh()
+                  refreshGroups()
+                }}
+              >
                 {t('redesign.refreshStatus')}
               </Button>
-              <Button variant="ghost" onClick={() => navigate('/mihomo')}>
+              <Button size="sm" variant="ghost" onClick={() => navigate('/mihomo')}>
                 {t('sider.coreSettings')}
               </Button>
+              {control.error && (
+                <Button
+                  size="icon-sm"
+                  variant="ghost"
+                  aria-label={t('common.close')}
+                  onClick={control.clearError}
+                >
+                  <X />
+                </Button>
+              )}
             </div>
           )}
-          <div className="grid gap-4 min-[1000px]:grid-cols-2">
-            <section className="ui-panel flex flex-col gap-4" aria-label={t('redesign.proxyMode')}>
-              <ProxyModeTabs />
-              <div className="flex flex-1 flex-col items-center justify-center gap-4 py-3">
-                <p role="status" className="text-sm font-medium">
-                  {status}
-                </p>
+          <section className="ui-panel ui-home-control" aria-label={t('redesign.proxyControl')}>
+            <div className="ui-home-status">
+              <div className="ui-home-status-icon" data-enabled={proxyEnabled} aria-hidden>
+                {proxyEnabled ? <ShieldCheck className="size-4" /> : <Power className="size-4" />}
+              </div>
+              <div className="min-w-0 flex-1">
+                <h2 role="status">{status}</h2>
+                <div className="ui-description tabular-nums">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <button
+                        type="button"
+                        className="ui-home-mode-trigger"
+                        aria-label={t('redesign.switchMode')}
+                      >
+                        {t(
+                          control.mode === 'tun'
+                            ? 'redesign.tunModeShort'
+                            : 'redesign.systemProxyShort'
+                        )}
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="ui-mode-popover" align="start">
+                      <ProxyModeTabs />
+                    </PopoverContent>
+                  </Popover>
+                  {' · '}
+                  {runtimeAvailable && proxyEnabled ? (
+                    <>
+                      {t('redesign.runningFor')} <ConnectedTimer startedAt={connectionStartedAt} />
+                    </>
+                  ) : (
+                    t(runtimeAvailable ? 'redesign.connectForStatus' : 'redesign.unknown')
+                  )}
+                </div>
+              </div>
+              <Button
+                data-guide="home-power-toggle"
+                variant={proxyEnabled ? 'outline' : 'default'}
+                aria-pressed={runtimeAvailable ? control.enabled : undefined}
+                aria-busy={control.busy}
+                disabled={
+                  control.busy ||
+                  !control.ready ||
+                  !runtimeAvailable ||
+                  (!control.enabled && (control.portDisabled || !current))
+                }
+                onClick={() => void control.apply(control.mode, !control.enabled)}
+              >
+                {control.busy ? <Spinner /> : <Power />}
+                {t(proxyEnabled ? 'redesign.disableProxy' : 'redesign.enableProxy')}
+              </Button>
+            </div>
+            <div className="ui-home-config">
+              <div className="min-w-0">
+                <div className="ui-home-config-label">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <button
+                        type="button"
+                        className="ui-home-mode-trigger"
+                        disabled={direct || !nodeAvailable || (groups?.length ?? 0) < 2}
+                      >
+                        {t('redesign.currentExit')}
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="ui-mode-popover" align="start">
+                      <label className="ui-description" htmlFor="overview-strategy">
+                        {t('sider.proxyGroup')}
+                      </label>
+                      <select
+                        id="overview-strategy"
+                        value={group?.name ?? ''}
+                        disabled={control.runtime?.mode === 'global'}
+                        onChange={(event) => setGroupName(event.target.value)}
+                        className="ui-setting-select mt-2 w-full"
+                      >
+                        {groups?.map((item) => (
+                          <option key={item.name} value={item.name}>
+                            {item.name}
+                          </option>
+                        ))}
+                      </select>
+                    </PopoverContent>
+                  </Popover>
+                </div>
                 <button
                   type="button"
-                  data-guide="home-power-toggle"
-                  aria-label={t(control.enabled ? 'redesign.disableProxy' : 'redesign.enableProxy')}
-                  aria-pressed={control.enabled}
-                  aria-busy={control.busy}
-                  disabled={
-                    control.busy ||
-                    !control.ready ||
-                    (!control.enabled && (control.portDisabled || !current))
+                  className="ui-home-node-picker"
+                  data-guide={hasProfiles ? 'home-group-selector' : 'home-add-profile-btn'}
+                  title={nodeName}
+                  aria-label={
+                    direct ? t('redesign.direct') : `${t('redesign.switchNode')}: ${nodeName}`
                   }
-                  onClick={() => void control.apply(control.mode, !control.enabled)}
-                  className={`flex size-20 items-center justify-center rounded-full border transition-colors disabled:opacity-50 ${control.enabled ? 'bg-primary text-primary-foreground' : 'bg-muted hover:bg-accent'}`}
+                  disabled={hasProfiles && (direct || !nodeAvailable || !group)}
+                  onClick={() =>
+                    hasProfiles
+                      ? navigate('/proxies', { state: { fromHome: true, groupName: group?.name } })
+                      : newProfile()
+                  }
                 >
-                  {control.busy ? <Spinner className="size-7" /> : <Power className="size-7" />}
+                  <span className="min-w-0 flex-1 truncate">
+                    {!hasProfiles
+                      ? t('pages.profiles.addProfile')
+                      : direct
+                        ? t('redesign.directExit')
+                        : nodeName}
+                  </span>
+                  {!direct && nodeAvailable && proxyEnabled && (
+                    <span
+                      className={`shrink-0 text-[11px] tabular-nums ${nodeDelay === 0 ? 'text-destructive' : 'text-muted-foreground'}`}
+                    >
+                      {nodeDelay === undefined || nodeDelay < 0
+                        ? t('redesign.notTested')
+                        : nodeDelay === 0
+                          ? t('redesign.latencyTimeout')
+                          : `${nodeDelay} ms`}
+                    </span>
+                  )}
+                  {!direct && nodeAvailable && group && (
+                    <ChevronRight className="size-3.5 shrink-0 text-muted-foreground" />
+                  )}
                 </button>
-                <p className="text-sm tabular-nums">
-                  <ConnectedTimer active={control.enabled} />
-                </p>
-                <p className="ui-description max-w-72 text-center">
-                  {t(control.mode === 'tun' ? 'redesign.tunHint' : 'redesign.defaultHint')}
-                </p>
-                {control.portDisabled && (
-                  <p className="text-sm text-destructive">{t('redesign.portDisabled')}</p>
-                )}
               </div>
-              <div className="grid grid-cols-2 gap-3 border-t pt-4 text-xs text-muted-foreground">
-                <div>
-                  <span className="flex items-center gap-1">
-                    <ArrowUp className="size-3" />
-                    {t('redesign.upload')}
-                  </span>
-                  <p className="mt-1 font-mono text-base text-foreground">
-                    {calcTraffic(traffic.up)}/s
-                  </p>
-                  <p>
-                    {calcTraffic(traffic.upTotal)} {t('redesign.total')}
-                  </p>
-                </div>
-                <div>
-                  <span className="flex items-center gap-1">
-                    <ArrowDown className="size-3" />
-                    {t('redesign.download')}
-                  </span>
-                  <p className="mt-1 font-mono text-base text-foreground">
-                    {calcTraffic(traffic.down)}/s
-                  </p>
-                  <p>
-                    {calcTraffic(traffic.downTotal)} {t('redesign.total')}
-                  </p>
-                </div>
-              </div>
-            </section>
-            <div className="flex flex-col gap-4">
-              <section className="ui-panel flex-1" data-guide="home-group-selector">
-                <h2 className="text-sm font-semibold">{t('redesign.currentNode')}</h2>
-                {groups && groups.length > 1 && (
-                  <select
-                    aria-label={t('sider.proxyGroup')}
-                    value={group?.name}
-                    onChange={(e) => setGroupName(e.target.value)}
-                    className="mt-3 w-full rounded-md border bg-background p-2 text-xs"
-                  >
-                    {groups.map((item) => (
-                      <option key={item.name} value={item.name}>
-                        {item.name}
-                      </option>
-                    ))}
-                  </select>
-                )}
-                <p className="my-4 break-words text-xl font-semibold">
-                  {control.runtimeError
-                    ? t('redesign.unknown')
-                    : group?.now || t('redesign.noNode')}
-                </p>
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="ui-description">{group?.name}</span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => navigate('/proxies', { state: { fromHome: true } })}
-                  >
-                    {t('redesign.chooseNode')}
-                    <ChevronRight />
-                  </Button>
-                </div>
-              </section>
-              <section className="ui-panel">
-                <h2 className="mb-3 text-sm font-semibold">{t('redesign.outboundMode')}</h2>
-                <OutboundModeSwitcher />
-                <p className="ui-description mt-3">{t('redesign.outboundHint')}</p>
-              </section>
-            </div>
-          </div>
-          <section className="ui-panel">
-            <div
-              className="flex flex-wrap items-center justify-between gap-3"
-              data-guide="home-profile-header"
-            >
               <div className="min-w-0">
-                <h2 className="text-xs text-muted-foreground">{t('redesign.currentProfile')}</h2>
-                <p className="mt-1 break-words font-semibold">
-                  {current?.name || t('pages.home.noProfile')}
-                </p>
+                <div className="ui-home-config-label">{t('redesign.outboundMode')}</div>
+                <OutboundModeSwitcher />
+              </div>
+            </div>
+            {control.portDisabled && (
+              <p className="px-4 pb-3 text-[11px] text-destructive">{t('redesign.portDisabled')}</p>
+            )}
+          </section>
+          <div className="ui-home-summary">
+            <section className="ui-panel" aria-label={t('redesign.realtimeTraffic')}>
+              <div className="flex items-center justify-between gap-2">
+                <h2>{t('redesign.realtimeTraffic')}</h2>
+                <span className="ui-description">{t('redesign.recentMinute')}</span>
+              </div>
+              <div className="ui-home-metrics">
+                {(
+                  [
+                    ['down', '↓', 'download'],
+                    ['up', '↑', 'upload']
+                  ] as const
+                ).map(([key, arrow, label]) => (
+                  <div key={key}>
+                    <p className="ui-description">
+                      {arrow} {t(`redesign.${label}`)}
+                    </p>
+                    <p className="ui-metric-value">
+                      {runtimeAvailable ? calcTraffic(traffic[key]).split(' ')[0] : '—'}
+                      <small>
+                        {runtimeAvailable ? calcTraffic(traffic[key]).split(' ')[1] : 'B'}/s
+                      </small>
+                    </p>
+                  </div>
+                ))}
+              </div>
+              <TrafficHistory available={runtimeAvailable} />
+            </section>
+            <section className="ui-panel" aria-label={t('redesign.connectionOverview')}>
+              <div className="flex items-center justify-between gap-2">
+                <h2>{t('redesign.connectionOverview')}</h2>
+                <Activity className="size-4 text-muted-foreground" />
+              </div>
+              <div className="ui-home-connections-total">
+                <div className="ui-metric-value">
+                  {runtimeAvailable ? connectionCount : '—'}
+                  <small>{t('redesign.activeConnections')}</small>
+                </div>
+              </div>
+              {connectionsPaused && <p className="ui-description">{t('redesign.refreshPaused')}</p>}
+              <dl>
+                <div className="ui-summary-row">
+                  <dt>{t('redesign.downloadTotal')}</dt>
+                  <dd>{runtimeAvailable ? calcTraffic(traffic.downTotal) : '—'}</dd>
+                </div>
+                <div className="ui-summary-row">
+                  <dt>{t('redesign.uploadTotal')}</dt>
+                  <dd>{runtimeAvailable ? calcTraffic(traffic.upTotal) : '—'}</dd>
+                </div>
+              </dl>
+              <button
+                type="button"
+                className="ui-summary-link"
+                onClick={() => navigate('/connections')}
+              >
+                {t('redesign.viewConnections')}
+                <ChevronRight className="size-3.5" />
+              </button>
+            </section>
+          </div>
+          <section className="ui-panel ui-home-profile" aria-label={t('redesign.currentProfile')}>
+            <div className="ui-home-profile-summary" data-guide="home-profile-header">
+              <Layers className="size-4 shrink-0 text-muted-foreground" />
+              <div className="min-w-0 flex-1">
+                {current?.announce || current?.supportUrl ? (
+                  <details className="ui-home-profile-announcement">
+                    <summary className="truncate" title={t('redesign.subscriptionInformation')}>
+                      {current.name}
+                    </summary>
+                    <div className="ui-home-profile-announcement-content">
+                      <h2>{t('redesign.subscriptionInformation')}</h2>
+                      {current.announce && (
+                        <p data-guide="home-profile-announce" className="select-text">
+                          {current.announce}
+                        </p>
+                      )}
+                      {current.supportUrl && (
+                        <Button
+                          data-guide="home-support-link"
+                          variant="link"
+                          size="sm"
+                          onClick={() => open(current.supportUrl)}
+                        >
+                          {t('pages.profiles.support')}
+                          <ExternalLink />
+                        </Button>
+                      )}
+                    </div>
+                  </details>
+                ) : (
+                  <h2 className="truncate" title={current?.name}>
+                    {current?.name || t('pages.home.noProfile')}
+                  </h2>
+                )}
+                <div className="ui-home-profile-info">
+                  <span>
+                    {t('redesign.remainingQuota')}{' '}
+                    {quotaKnown
+                      ? `${calcTraffic(Math.max(0, total - used))} / ${calcTraffic(total)}`
+                      : t('redesign.notProvided')}
+                  </span>
+                  <span>
+                    {expires && expires > 0
+                      ? expired
+                        ? t('pages.home.subscriptionExpired')
+                        : t('redesign.expiresInDays', { count: days })
+                      : t('redesign.notProvided')}
+                  </span>
+                </div>
               </div>
               <div className="ui-toolbar">
-                {current?.type === 'remote' && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={updating}
-                    onClick={() => void update()}
-                  >
-                    <RefreshCcw className={updating ? 'animate-spin' : ''} />
-                    {t('redesign.updateSubscription')}
-                  </Button>
-                )}
                 <Button size="sm" variant="ghost" onClick={() => navigate('/profiles')}>
-                  {t('sider.profileManagement')}
                   <ChevronRight />
+                  {t('redesign.manageProfile')}
                 </Button>
               </div>
             </div>
-            {quotaKnown && (
-              <div
-                role="progressbar"
-                aria-label={t('redesign.usedTraffic')}
-                aria-valuemin={0}
-                aria-valuemax={100}
-                aria-valuenow={Math.min(100, Math.round((used / total) * 100))}
-                className="my-4 h-1.5 overflow-hidden rounded-full bg-muted"
-              >
-                <div
-                  className="h-full bg-primary"
-                  style={{ width: `${Math.min(100, Math.max(0, (used / total) * 100))}%` }}
-                />
-              </div>
-            )}
-            <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-xs text-muted-foreground">
-              <span>
-                {t('redesign.usedTraffic')}:{' '}
-                {usageKnown ? calcTraffic(used) : t('redesign.notProvided')}
-              </span>
-              <span>
-                {t('pages.home.trafficRemaining')}{' '}
-                {quotaKnown ? calcTraffic(Math.max(0, total - used)) : t('redesign.notProvided')}
-              </span>
-              <span>
-                {t('pages.home.expires')}{' '}
-                {expires && expires > 0
-                  ? dayjs.unix(expires).format('L')
-                  : t('redesign.notProvided')}
-              </span>
-            </div>
             {days !== undefined && days <= 3 && (
-              <div
-                role="status"
-                className="mt-4 flex flex-wrap items-center gap-3 rounded-lg border border-destructive/40 p-3 text-sm text-destructive"
-              >
-                <span className="flex-1">
+              <div role="status" className="ui-home-alert mt-3">
+                <p className="text-destructive">
                   {expired
                     ? t('pages.home.subscriptionExpired')
                     : t('pages.home.subscriptionExpiring', { count: days })}
-                </span>
+                </p>
                 {renewal && (
                   <Button size="sm" variant="outline" onClick={() => open(renewal)}>
                     {t('pages.home.renewSubscription')}
@@ -326,28 +433,7 @@ const Home: React.FC = () => {
                 )}
               </div>
             )}
-            {current?.announce && (
-              <p
-                data-guide="home-profile-announce"
-                className="mt-4 whitespace-pre-line break-words border-t pt-4 text-sm"
-              >
-                {current.announce}
-              </p>
-            )}
-            {current?.supportUrl && (
-              <Button
-                data-guide="home-support-link"
-                className="mt-3"
-                variant="link"
-                size="sm"
-                onClick={() => open(current.supportUrl)}
-              >
-                {t('pages.profiles.support')}
-                <ExternalLink />
-              </Button>
-            )}
           </section>
-          <p className="ui-description">{t('redesign.connectivityHint')}</p>
         </div>
       )}
       {editing && (

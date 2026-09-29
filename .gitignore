@@ -1,9 +1,11 @@
 node_modules
+.pnpm-store/
 resources/files
 resources/sidecar
 extra
 dist
 out
+output/
 .DS_Store
 *.log*
 .idea

@@ -11,8 +11,9 @@ import { Trash2, X } from 'lucide-react'
 
 interface Props {
   connections: ControllerConnectionDetail[]
-  setSelected: React.Dispatch<React.SetStateAction<ControllerConnectionDetail | undefined>>
-  setIsDetailModalOpen: React.Dispatch<React.SetStateAction<boolean>>
+  selectedId?: string
+  onSelect: (connection: ControllerConnectionDetail) => void
+  onOpenDetails: (connection: ControllerConnectionDetail) => void
   close: (id: string) => void
   visibleColumns: Set<string>
   /** Rendered below the header row when there is nothing to show. */
@@ -201,8 +202,9 @@ const DEFAULT_COLUMNS: Omit<ColumnConfig, 'label'>[] = [
 
 const ConnectionTable: React.FC<Props> = ({
   connections,
-  setSelected,
-  setIsDetailModalOpen,
+  selectedId,
+  onSelect,
+  onOpenDetails,
   close,
   visibleColumns,
   emptyState,
@@ -376,15 +378,15 @@ const ConnectionTable: React.FC<Props> = ({
   const visibleColumnsFiltered = columnsWithLabels.filter((col) => col.visible)
 
   return (
-    <div className="h-full flex flex-col border rounded-2xl overflow-hidden mx-2">
-      <div ref={tableRef} className="flex-1 overflow-auto">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden">
+      <div ref={tableRef} className="min-h-0 flex-1 overflow-auto">
         <table className="w-full border-collapse">
           <thead className="sticky top-0 z-10 bg-muted">
             <tr>
               {visibleColumnsFiltered.map((col) => (
                 <th
                   key={col.key}
-                  className="relative border-b border-border text-left text-xs font-semibold text-muted-foreground px-3 h-10"
+                  className="relative h-8 border-b border-border px-2 text-left text-[11px] font-medium text-muted-foreground"
                   style={{ width: col.width, minWidth: col.minWidth }}
                 >
                   <div className="flex items-center justify-between gap-1">
@@ -418,10 +420,16 @@ const ConnectionTable: React.FC<Props> = ({
             {sortedConnections.map((connection) => (
               <tr
                 key={connection.id}
-                className="border-b border-border hover:bg-muted cursor-pointer transition-colors h-12"
-                onClick={() => {
-                  setSelected(connection)
-                  setIsDetailModalOpen(true)
+                tabIndex={0}
+                aria-selected={selectedId === connection.id}
+                className={`h-10 cursor-pointer border-b border-border transition-colors hover:bg-muted/45 ${selectedId === connection.id ? 'bg-muted/65' : ''}`}
+                onClick={() => onSelect(connection)}
+                onDoubleClick={() => onOpenDetails(connection)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault()
+                    onSelect(connection)
+                  }
                 }}
               >
                 {visibleColumnsFiltered.map((col) => {
@@ -439,7 +447,7 @@ const ConnectionTable: React.FC<Props> = ({
                   return (
                     <td
                       key={col.key}
-                      className="px-3 text-sm text-foreground truncate"
+                      className="truncate px-2 text-xs text-foreground"
                       style={{ maxWidth: col.width }}
                       title={
                         typeof col.getValue(connection) === 'string'
@@ -451,15 +459,12 @@ const ConnectionTable: React.FC<Props> = ({
                     </td>
                   )
                 })}
-                <td className="sticky right-1.5 bg-inherit" onClick={(e) => e.stopPropagation()}>
+                <td className="sticky right-0 bg-inherit px-1" onClick={(e) => e.stopPropagation()}>
                   <Button
-                    variant="default"
+                    variant="ghost"
                     size="icon-sm"
-                    className={
-                      connection.isActive
-                        ? 'text-amber-500 hover:text-amber-600 hover:bg-amber-500/10 bg-zinc-900'
-                        : 'text-destructive hover:text-destructive hover:bg-destructive/10 bg-zinc-900'
-                    }
+                    className="size-7 text-muted-foreground hover:text-destructive"
+                    aria-label={t(connection.isActive ? 'redesign.disconnect' : 'common.delete')}
                     onClick={() => {
                       close(connection.id)
                     }}

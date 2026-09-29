@@ -129,6 +129,8 @@ const zhCN: LocaleTranslations = {
     systemCorePathInvalid: '系统内核路径无效或不存在',
     systemCorePathNotSet: '系统内核路径未设置',
     corePathError: '内核路径错误',
+    coreAuthorizationFailed:
+      '内核授权失败。请重试并完成系统管理员验证；若仍失败，请在日志中查看授权错误。',
     windowsElevationFailed: 'Windows 提权执行失败',
     linuxElevationFailed: 'Linux 提权执行失败',
     macosElevationFailed: 'macOS 提权执行失败',
@@ -140,8 +142,14 @@ const zhCN: LocaleTranslations = {
     mismatch: '不符',
     downloadCancelled: '下载已取消',
     downloadFailed: '下载失败',
+    invalidUpdateVersion: '更新版本信息无效，或该版本不高于当前版本',
+    updateInProgress: '更新正在进行中，请稍候',
+    coreUpdateFailed: '内核更新失败，已恢复原版本',
+    coreUpdateRollbackFailed: '内核更新失败，恢复启动也未成功，请查看日志',
+    coreVersionMismatch: '更新后的内核版本校验失败',
+    coreChangedDuringUpdate: '更新期间切换了内核，请重新更新',
     userCancelledDownload: '用户取消下载',
-    scriptReturnMustBeObject: '脚本返回值必须是对象',
+    scriptReturnMustBeObject: '脚本返回值必须是对象'
   },
   ui: {
     defaultTheme: '默认',
@@ -230,7 +238,7 @@ const enUS: LocaleTranslations = {
     switchedToRuleMode: 'Switched to Rule Mode',
     switchedToGlobalMode: 'Switched to Global Mode',
     switchedToDirectMode: 'Switched to Direct Mode',
-    profileImportSuccess: 'Profile imported successfully',
+    profileImportSuccess: 'Profile imported successfully'
   },
   dialog: {
     firstRunAdmin: 'Please run as administrator for the first time',
@@ -269,6 +277,8 @@ const enUS: LocaleTranslations = {
     systemCorePathInvalid: 'System core path is invalid or does not exist',
     systemCorePathNotSet: 'System core path not configured',
     corePathError: 'Core path error',
+    coreAuthorizationFailed:
+      'Core authorization failed. Complete the administrator prompt and retry. See the logs for details if it still fails.',
     windowsElevationFailed: 'Windows elevation failed',
     linuxElevationFailed: 'Linux elevation failed',
     macosElevationFailed: 'macOS elevation failed',
@@ -280,8 +290,14 @@ const enUS: LocaleTranslations = {
     mismatch: 'mismatch',
     downloadCancelled: 'Download cancelled',
     downloadFailed: 'Download failed',
+    invalidUpdateVersion: 'Invalid update version or version is not newer than the current one',
+    updateInProgress: 'An update is already in progress',
+    coreUpdateFailed: 'Core update failed; the previous version was restored',
+    coreUpdateRollbackFailed: 'Core update and recovery restart failed; check the logs',
+    coreVersionMismatch: 'Updated core version verification failed',
+    coreChangedDuringUpdate: 'The selected core changed during the update; please retry',
     userCancelledDownload: 'User cancelled download',
-    scriptReturnMustBeObject: 'Script return value must be an object',
+    scriptReturnMustBeObject: 'Script return value must be an object'
   },
   ui: {
     defaultTheme: 'Default',
@@ -421,6 +437,12 @@ const ruRU: LocaleTranslations = {
     mismatch: 'не совпадает',
     downloadCancelled: 'Загрузка отменена',
     downloadFailed: 'Ошибка загрузки',
+    invalidUpdateVersion: 'Некорректная версия обновления или версия не новее текущей',
+    updateInProgress: 'Обновление уже выполняется',
+    coreUpdateFailed: 'Обновление ядра не удалось; предыдущая версия восстановлена',
+    coreUpdateRollbackFailed: 'Обновление и перезапуск ядра не удались; проверьте журнал',
+    coreVersionMismatch: 'Версия обновлённого ядра не прошла проверку',
+    coreChangedDuringUpdate: 'Выбранное ядро изменилось во время обновления; повторите попытку',
     userCancelledDownload: 'Пользователь отменил загрузку',
     scriptReturnMustBeObject: 'Возвращаемое значение скрипта должно быть объектом'
   },

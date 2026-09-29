@@ -1,12 +1,10 @@
 import React, { useState } from 'react'
-import { toast } from 'sonner'
 import SettingCard from '../base/base-setting-card'
 import SettingItem from '../base/base-setting-item'
 import { Button } from '@renderer/components/ui/button'
 import { Switch } from '@renderer/components/ui/switch'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@renderer/components/ui/tooltip'
-import useSWR from 'swr'
-import { checkAutoRun, disableAutoRun, enableAutoRun, relaunchApp } from '@renderer/utils/ipc'
+import { relaunchApp } from '@renderer/utils/ipc'
 import { useAppConfig } from '@renderer/hooks/use-app-config'
 import ConfirmModal from '../base/base-confirm'
 import { useTranslation } from 'react-i18next'
@@ -19,7 +17,6 @@ interface GeneralConfigProps {
 const GeneralConfig: React.FC<GeneralConfigProps> = (props) => {
   const { showHiddenSettings } = props
   const { t } = useTranslation()
-  const { data: enable, mutate: mutateEnable } = useSWR('checkAutoRun', checkAutoRun)
   const { appConfig, patchAppConfig } = useAppConfig()
   const {
     silentStart = false,
@@ -56,26 +53,9 @@ const GeneralConfig: React.FC<GeneralConfigProps> = (props) => {
         />
       )}
       <SettingCard>
-        <SettingItem title={t('settings.general.autoStart')} divider>
-          <Switch
-            checked={enable}
-            onCheckedChange={async (value) => {
-              try {
-                if (value) {
-                  await enableAutoRun()
-                } else {
-                  await disableAutoRun()
-                }
-              } catch (e) {
-                toast.error(`${e}`)
-              } finally {
-                mutateEnable()
-              }
-            }}
-          />
-        </SettingItem>
         <SettingItem title={t('settings.general.silentStart')} divider>
           <Switch
+            aria-label={t('settings.general.silentStart')}
             checked={silentStart}
             onCheckedChange={(value) => {
               patchAppConfig({ silentStart: value })
@@ -84,6 +64,7 @@ const GeneralConfig: React.FC<GeneralConfigProps> = (props) => {
         </SettingItem>
         <SettingItem title={t('settings.general.autoCheckUpdate')} divider={showHiddenSettings}>
           <Switch
+            aria-label={t('settings.general.autoCheckUpdate')}
             checked={autoCheckUpdate}
             onCheckedChange={(value) => {
               patchAppConfig({ autoCheckUpdate: value })
@@ -96,7 +77,11 @@ const GeneralConfig: React.FC<GeneralConfigProps> = (props) => {
             actions={
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button size="icon-sm" variant="ghost">
+                  <Button
+                    size="icon-sm"
+                    variant="ghost"
+                    aria-label={t('settings.general.disableGPUHelp')}
+                  >
                     <MessageCircleQuestionMark className="text-lg" />
                   </Button>
                 </TooltipTrigger>
@@ -105,6 +90,7 @@ const GeneralConfig: React.FC<GeneralConfigProps> = (props) => {
             }
           >
             <Switch
+              aria-label={t('settings.general.disableGPU')}
               checked={pendingDisableGPU}
               onCheckedChange={(value) => {
                 setPendingDisableGPU(value)

@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import SettingCard from '../base/base-setting-card'
 import SettingItem from '../base/base-setting-item'
 import EditableList from '../base/base-list-editor'
@@ -14,7 +14,7 @@ import InterfaceModal from '@renderer/components/mihomo/interface-modal'
 import { useTranslation } from 'react-i18next'
 import { Network } from 'lucide-react'
 
-const PortSetting: React.FC = () => {
+const PortSetting: React.FC<{ mode?: 'basic' | 'advanced' | 'all' }> = ({ mode = 'all' }) => {
   const { t } = useTranslation()
   const { appConfig } = useAppConfig()
   const { sysProxy, proxyMode = false, onlyActiveDevice = false } = appConfig || {}
@@ -33,6 +33,7 @@ const PortSetting: React.FC = () => {
   } = controledMihomoConfig || {}
 
   const [mixedPortInput, setMixedPortInput] = useState(mixedPort)
+  useEffect(() => setMixedPortInput(mixedPort), [mixedPort])
   const [socksPortInput, setSocksPortInput] = useState(socksPort)
   const [httpPortInput, setHttpPortInput] = useState(httpPort)
   const [redirPortInput, setRedirPortInput] = useState(redirPort)
@@ -64,39 +65,79 @@ const PortSetting: React.FC = () => {
     await mihomoHotReloadConfig()
   }
 
+  const mixedPortRow = (
+    <SettingItem
+      title={t('mihomo.portSettings.mixedPort')}
+      description={t('redesign.mixedPortDescription')}
+      divider
+    >
+      <div className="flex">
+        {mixedPortInput !== mixedPort && (
+          <Button
+            size="sm"
+            className="mr-2"
+            disabled={hasPortConflict()}
+            onClick={async () => {
+              await onChangeNeedRestart({ 'mixed-port': mixedPortInput })
+              if (proxyMode && sysProxy?.enable) {
+                await triggerSysProxy(true, onlyActiveDevice)
+              }
+            }}
+          >
+            {t('common.confirm')}
+          </Button>
+        )}
+        <Input
+          type="number"
+          className="w-25 h-8 text-sm"
+          value={mixedPortInput.toString()}
+          max={65535}
+          min={0}
+          onChange={(e) => {
+            setMixedPortInput(parseInt(e.target.value) || 0)
+          }}
+        />
+      </div>
+    </SettingItem>
+  )
+  const allowLanRow = (
+    <SettingItem
+      title={t('mihomo.portSettings.allowLan')}
+      description={t('redesign.allowLanDescription')}
+      actions={
+        <Button
+          size="icon-sm"
+          variant="ghost"
+          onClick={() => {
+            setLanOpen(true)
+          }}
+        >
+          <Network className="text-lg" />
+        </Button>
+      }
+      divider
+    >
+      <Switch
+        checked={allowLan}
+        onCheckedChange={(v) => {
+          onChangeNeedRestart({ 'allow-lan': v })
+        }}
+      />
+    </SettingItem>
+  )
+  if (mode === 'basic')
+    return (
+      <>
+        {lanOpen && <InterfaceModal onClose={() => setLanOpen(false)} />}
+        {mixedPortRow}
+        {allowLanRow}
+      </>
+    )
   return (
     <>
       {lanOpen && <InterfaceModal onClose={() => setLanOpen(false)} />}
       <SettingCard title={t('mihomo.portSettings.title')}>
-        <SettingItem title={t('mihomo.portSettings.mixedPort')} divider>
-          <div className="flex">
-            {mixedPortInput !== mixedPort && (
-              <Button
-                size="sm"
-                className="mr-2"
-                disabled={hasPortConflict()}
-                onClick={async () => {
-                  await onChangeNeedRestart({ 'mixed-port': mixedPortInput })
-                  if (proxyMode && sysProxy?.enable) {
-                    await triggerSysProxy(true, onlyActiveDevice)
-                  }
-                }}
-              >
-                {t('common.confirm')}
-              </Button>
-            )}
-            <Input
-              type="number"
-              className="w-25 h-8 text-sm"
-              value={mixedPortInput.toString()}
-              max={65535}
-              min={0}
-              onChange={(e) => {
-                setMixedPortInput(parseInt(e.target.value) || 0)
-              }}
-            />
-          </div>
-        </SettingItem>
+        {mode !== 'advanced' && mixedPortRow}
         <SettingItem title={t('mihomo.portSettings.socksPort')} divider>
           <div className="flex">
             {socksPortInput !== socksPort && (
@@ -209,28 +250,7 @@ const PortSetting: React.FC = () => {
             </div>
           </SettingItem>
         )}
-        <SettingItem
-          title={t('mihomo.portSettings.allowLan')}
-          actions={
-            <Button
-              size="icon-sm"
-              variant="ghost"
-              onClick={() => {
-                setLanOpen(true)
-              }}
-            >
-              <Network className="text-lg" />
-            </Button>
-          }
-          divider
-        >
-          <Switch
-            checked={allowLan}
-            onCheckedChange={(v) => {
-              onChangeNeedRestart({ 'allow-lan': v })
-            }}
-          />
-        </SettingItem>
+        {mode !== 'advanced' && allowLanRow}
         {allowLan && (
           <>
             <SettingItem title={t('mihomo.portSettings.allowedIpRanges')}>

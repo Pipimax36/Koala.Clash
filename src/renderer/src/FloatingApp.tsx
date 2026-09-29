@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import MihomoIcon from './components/base/mihomo-icon'
+import appIcon from '../../../resources/icon.png'
 import { calcTraffic } from './utils/calc'
 import { showContextMenu, triggerMainWindow } from './utils/ipc'
 import { useAppConfig } from './hooks/use-app-config'
@@ -57,7 +57,12 @@ const FloatingApp: React.FC = () => {
             }
             className={`app-nodrag cursor-pointer floating-thumb ${tunEnabled ? 'bg-gradient-end-power-on' : proxyModeEnabled ? 'bg-primary' : 'bg-muted'} hover:opacity-80 rounded-full h-[calc(100%-4px)] aspect-square`}
           >
-            <MihomoIcon className="floating-icon text-primary-foreground h-full leading-full text-[22px] mx-auto" />
+            <img
+              src={appIcon}
+              alt="Koala Clash"
+              draggable={false}
+              className="floating-icon h-full w-full object-contain p-1"
+            />
           </div>
         </div>
         <div className="w-full overflow-hidden">

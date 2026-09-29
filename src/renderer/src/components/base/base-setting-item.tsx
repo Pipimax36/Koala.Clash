@@ -1,29 +1,21 @@
-import { Separator } from '@renderer/components/ui/separator'
-
 import React from 'react'
-
 interface Props {
   title: React.ReactNode
+  description?: React.ReactNode
   actions?: React.ReactNode
   children?: React.ReactNode
   divider?: boolean
 }
-
-const SettingItem: React.FC<Props> = (props) => {
-  const { title, actions, children, divider = false } = props
-
-  return (
-    <>
-      <div className="h-[32px] w-full flex items-center justify-between gap-4">
-        <div className="h-full flex items-center">
-          <h4 className="h-full text-md leading-[32px] whitespace-nowrap">{title}</h4>
-          <div>{actions}</div>
-        </div>
-        {children}
+const SettingItem: React.FC<Props> = ({ title, description, actions, children }) => (
+  <div className="ui-setting-row">
+    <div className="min-w-0">
+      <div className="flex items-center gap-2">
+        <h4>{title}</h4>
+        {actions}
       </div>
-      {divider && <Separator className="my-2" />}
-    </>
-  )
-}
-
+      {description && <p>{description}</p>}
+    </div>
+    {children}
+  </div>
+)
 export default SettingItem

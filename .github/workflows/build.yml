@@ -1,5 +1,7 @@
 name: Build
-permissions: write-all
+run-name: Release ${{ inputs.version || 'preview' }} from ${{ github.ref_name }}
+permissions:
+  contents: write
 on:
   workflow_dispatch:
     inputs:
@@ -17,9 +19,27 @@ on:
 #      - '.github/workflows/issues.yml'
 
 jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - id: version
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: node scripts/release-version.mjs >> "$GITHUB_OUTPUT"
+
   build:
+    needs: version
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: windows-latest
@@ -65,30 +85,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
       - name: Setup pnpm
-        run: npm install -g pnpm
+        run: npm install -g pnpm@10.33.0
 
-      - name: Determine and Update Version
+      - name: Set Build Version
         shell: bash
-        run: |
-          GIT_COMMIT_HASH=$(git rev-parse --short HEAD)
-          VERSION=$(jq -r '.version' package.json)
-
-          if [ "${{ github.event.inputs.version }}" == "" ]; then
-            BASE_VERSION=$(echo $VERSION | awk -F. '{print $1"."$2"."$3+1}')
-            VERSION_PREFIX=${VERSION_PREFIX:-beta}
-            RELEASE_VERSION="${BASE_VERSION}-${VERSION_PREFIX}-${GIT_COMMIT_HASH}"
-          else
-            INPUT_VERSION="${{ github.event.inputs.version }}"
-            CLEAN_VERSION=$(echo "$INPUT_VERSION" | sed 's/^v//')
-            if [[ ! "$CLEAN_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-              echo "Invalid version format: $INPUT_VERSION"
-              exit 1
-            fi
-            RELEASE_VERSION="$CLEAN_VERSION"
-          fi
-
-          jq --arg version "$RELEASE_VERSION" '.version = $version' package.json > tmp.json && mv tmp.json package.json
+        env:
+          RELEASE_VERSION: ${{ needs.version.outputs.version }}
+        run: node -e "const fs = require('fs'); const p = JSON.parse(fs.readFileSync('package.json')); p.version = process.env.RELEASE_VERSION; fs.writeFileSync('package.json', JSON.stringify(p, null, 2) + '\n')"
 
       - name: Correct folder name on Linux
         if: matrix.os == 'ubuntu-latest'
@@ -101,19 +110,22 @@ jobs:
           sudo apt-get update && sudo apt-get install -y libarchive-tools fakeroot
 
       - name: Install Dependencies and Prepare
-        env:
-          npm_config_arch: ${{ matrix.arch }}
-          npm_config_target_arch: ${{ matrix.arch }}
         shell: bash
         run: |
-          SKIP_PREPARE=1 pnpm install
+          # Build tools run on the host; electron-builder selects the target architecture below.
+          SKIP_PREPARE=1 pnpm install --frozen-lockfile
           pnpm prepare --${{ matrix.arch }}
 
       - name: Create Apple API Key file
         if: matrix.os == 'macos-latest'
+        env:
+          APPLE_API_KEY_CONTENT: ${{ secrets.APPLE_API_KEY_CONTENT }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY }}
         run: |
-          mkdir -p ~/.appstoreconnect/private_keys
-          echo "${{ secrets.APPLE_API_KEY_CONTENT }}" > ~/.appstoreconnect/private_keys/AuthKey_${{ secrets.APPLE_API_KEY }}.p8
+          if [[ -n "$APPLE_API_KEY_CONTENT" && -n "$APPLE_API_KEY_ID" ]]; then
+            mkdir -p ~/.appstoreconnect/private_keys
+            printf '%s' "$APPLE_API_KEY_CONTENT" > "$HOME/.appstoreconnect/private_keys/AuthKey_${APPLE_API_KEY_ID}.p8"
+          fi
 
       - name: Build
         env:
@@ -132,6 +144,10 @@ jobs:
           elif [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
             pnpm build:linux ${{ matrix.format }} --${{ matrix.arch }}
           else
+            if [[ -z "$CSC_LINK" ]]; then
+              unset CSC_LINK CSC_KEY_PASSWORD CSC_NAME
+              export CSC_IDENTITY_AUTO_DISCOVERY=false
+            fi
             pnpm build:mac --${{ matrix.arch }}
           fi
 
@@ -146,7 +162,9 @@ jobs:
 
       - name: Generate latest.yml
         shell: bash
-        run: SKIP_CHANGELOG=1 pnpm updater
+        env:
+          RELEASE_TAG: ${{ needs.version.outputs.tag }}
+        run: pnpm updater
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
@@ -160,7 +178,8 @@ jobs:
             changelog.md
 
   pre-release:
-    needs: [build]
+    if: needs.version.outputs.prerelease == 'true'
+    needs: [build, version]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -171,13 +190,6 @@ jobs:
         with:
           path: bin/
           merge-multiple: true
-
-      - name: Delete current release assets
-        uses: 8Mi-Tech/delete-release-assets-action@main
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          tag: pre-release
-          deleteOnlyFromDrafts: false
 
       - name: Tag Repo
         uses: richardsimko/update-tag@v1
@@ -191,6 +203,8 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: pre-release
+          target_commitish: ${{ github.sha }}
+          fail_on_unmatched_files: true
           body_path: bin/changelog.md
           files: |
             bin/latest.yml
@@ -198,8 +212,8 @@ jobs:
           prerelease: true
 
   release:
-    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && github.event.inputs.version != '')
-    needs: [build]
+    if: needs.version.outputs.prerelease == 'false'
+    needs: [build, version]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -208,26 +222,22 @@ jobs:
           fetch-depth: '0'
           fetch-tags: 'true'
 
-      - name: Update Version
-        run: |
-          INPUT_VERSION="${{ github.event.inputs.version }}"
-          CLEAN_VERSION=$(echo "$INPUT_VERSION" | sed 's/^v//')
-          if [[ ! "$CLEAN_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "Invalid version format: $INPUT_VERSION"
-            exit 1
-          fi
-          jq --arg version "$CLEAN_VERSION" '.version = $version' package.json > tmp.json && mv tmp.json package.json
+      - name: Set Release Version
+        env:
+          RELEASE_VERSION: ${{ needs.version.outputs.version }}
+        run: node -e "const fs = require('fs'); const p = JSON.parse(fs.readFileSync('package.json')); p.version = process.env.RELEASE_VERSION; fs.writeFileSync('package.json', JSON.stringify(p, null, 2) + '\n')"
 
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git config --global user.name "github-actions[bot]"
-          git add package.json
-          git commit -m "update version to $CLEAN_VERSION"
-          git push
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
 
       - name: Install Dependencies and Updater
+        env:
+          RELEASE_TAG: ${{ needs.version.outputs.tag }}
         run: |
-          npm install -g pnpm
-          SKIP_PREPARE=1 pnpm install
+          npm install -g pnpm@10.33.0
+          SKIP_PREPARE=1 pnpm install --frozen-lockfile
           pnpm updater
 
       - uses: actions/download-artifact@v4
@@ -235,34 +245,31 @@ jobs:
           path: bin/
           merge-multiple: true
 
-      - name: Delete Current
-        uses: 8Mi-Tech/delete-release-assets-action@main
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          tag: ${{ github.event.inputs.version != '' && github.event.inputs.version || github.ref }}
-          deleteOnlyFromDrafts: false
-
       - name: Publish Release
         if: success()
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.event.inputs.version != '' && github.event.inputs.version || github.ref }}
+          tag_name: ${{ needs.version.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          fail_on_unmatched_files: true
           body_path: changelog.md
           files: |
             latest.yml
             bin/dist/*
 
       - name: Telegram Alert
-        if: success()
+        if: success() && vars.TELEGRAM_NOTIFICATIONS_ENABLED == 'true'
         env:
+          RELEASE_TAG: ${{ needs.version.outputs.tag }}
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           GROUP_ID: ${{ secrets.TELEGRAM_TO_GROUP }}
           CHANNEL_ID: ${{ secrets.TELEGRAM_TO_CHANNEL }}
         run: pnpm telegram
 
   aur:
-    needs: [release]
+    if: vars.AUR_PUBLISH_ENABLED == 'true'
+    needs: [release, version]
     uses: ./.github/workflows/aur-publish.yml
     with:
-      tag: ${{ github.event.inputs.version != '' && github.event.inputs.version || github.ref_name }}
+      tag: ${{ needs.version.outputs.tag }}
     secrets: inherit

@@ -1,6 +1,7 @@
 # Koala Clash
+
 <p align="center">
-  <img src="./build/icon.png" alt="Clash" width="128" />
+  <img src="./build/icon.png" alt="Koala Clash" width="128" />
   <br>
   <br>
   <a href="https://github.com/coolcoala/koala-clash/releases">
@@ -17,6 +18,7 @@
 - [x] Built-in Mihomo cores (stable and alpha)
 
 ## Screenshots
+
 ![Preview](./docs/preview.png)
 
 ## Development
@@ -72,15 +74,15 @@ src/
 
 ### Commands
 
-| Command | Description |
-|---------|-------------|
-| `pnpm dev` | Start dev server (renderer hot reloads, main requires restart) |
-| `pnpm lint` | Run ESLint |
-| `pnpm format` | Run Prettier |
-| `pnpm typecheck` | TypeScript type checking |
-| `pnpm build:win` | Build for Windows |
-| `pnpm build:mac` | Build for macOS |
-| `pnpm build:linux` | Build for Linux |
+| Command            | Description                                                    |
+| ------------------ | -------------------------------------------------------------- |
+| `pnpm dev`         | Start dev server (renderer hot reloads, main requires restart) |
+| `pnpm lint`        | Run ESLint                                                     |
+| `pnpm format`      | Run Prettier                                                   |
+| `pnpm typecheck`   | TypeScript type checking                                       |
+| `pnpm build:win`   | Build for Windows                                              |
+| `pnpm build:mac`   | Build for macOS                                                |
+| `pnpm build:linux` | Build for Linux                                                |
 
 Architecture and format can be specified via flags:
 

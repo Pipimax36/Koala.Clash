@@ -49,7 +49,10 @@ type DriverConfig = {
   steps: DriveStep[]
   onDestroyed?: () => void
   onCloseClick?: (element: Element | undefined, step: DriveStep, options: DriverStepOptions) => void
-  onPopoverRender?: (popover: PopoverDOM, options: { config: DriverConfig; state: unknown; driver: Driver }) => void
+  onPopoverRender?: (
+    popover: PopoverDOM,
+    options: { config: DriverConfig; state: unknown; driver: Driver }
+  ) => void
 }
 
 type Driver = {
@@ -186,6 +189,16 @@ async function loadDriverModule(): Promise<{ driver: DriverFactory }> {
 
 function resolveElement(selector: string): Element | null {
   return document.querySelector(selector)
+}
+
+function revealGuideElement(selector: string): Element | null {
+  const element = resolveElement(selector)
+  let ancestor = element?.parentElement
+  while (ancestor) {
+    if (ancestor instanceof HTMLDetailsElement) ancestor.open = true
+    ancestor = ancestor.parentElement
+  }
+  return element
 }
 
 function sleep(ms: number): Promise<void> {
@@ -566,7 +579,7 @@ function buildGuideSteps(mode: GuideMode = 'default'): DriveStep[] {
     },
     {
       element: () =>
-        resolveElement(GUIDE_SELECTORS.profileAnnounce) ??
+        revealGuideElement(GUIDE_SELECTORS.profileAnnounce) ??
         resolveElement(GUIDE_SELECTORS.profileHeader) ??
         resolveElement(GUIDE_SELECTORS.powerButton),
       popover: {
@@ -637,7 +650,7 @@ function buildGuideSteps(mode: GuideMode = 'default'): DriveStep[] {
       waitFor: [GUIDE_SELECTORS.powerButton, GUIDE_SELECTORS.addProfileButton]
     }),
     {
-      element: GUIDE_SELECTORS.supportButton,
+      element: () => revealGuideElement(GUIDE_SELECTORS.supportButton),
       popover: {
         title: t('guide.supportTitle'),
         description: t('guide.supportDesc'),

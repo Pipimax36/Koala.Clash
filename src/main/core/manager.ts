@@ -1,8 +1,9 @@
-import { ChildProcess, execFile, execFileSync, spawn } from 'child_process'
+import { ChildProcess, execFile, spawn } from 'child_process'
 import {
   dataDir,
   logPath,
   mihomoCorePath,
+  mihomoSourcePath,
   mihomoIpcPath,
   mihomoProfileWorkDir,
   mihomoTestDir,
@@ -40,6 +41,14 @@ import { disableSysProxy, triggerSysProxy } from '../sys/sysproxy'
 import { getAxios } from './mihomoApi'
 import { setSysDns } from '../service/api'
 import { t } from '../utils/i18n'
+import { coreDiagnostics } from './core-diagnostics'
+import {
+  getMacCoreAuthorizationPaths,
+  grantMacCorePermission,
+  hasCorePermission,
+  quoteShellArg,
+  runMacAdminScript
+} from './core-permissions'
 
 const ctlParam = process.platform === 'win32' ? '-ext-ctl-pipe' : '-ext-ctl-unix'
 
@@ -77,9 +86,7 @@ let providerNames = new Set<string>()
 let unmatchedProviders = new Set<string>()
 
 const normalize = (s: string): string =>
-  s
-    .replace(/\\u([0-9a-fA-F]{4})/g, (_, h) => String.fromCharCode(parseInt(h, 16)))
-    .normalize('NFC')
+  s.replace(/\\u([0-9a-fA-F]{4})/g, (_, h) => String.fromCharCode(parseInt(h, 16))).normalize('NFC')
 
 export async function resetProviderTracking(): Promise<void> {
   const { 'rule-providers': ruleProviders, 'proxy-providers': proxyProviders } =
@@ -177,6 +184,9 @@ export async function startCore(detached = false): Promise<Promise<void>[]> {
   })
   child.stdout?.pipe(stdout)
   child.stderr?.pipe(stderr)
+  coreDiagnostics.resetBuffers()
+  child.stdout?.on('data', (data) => coreDiagnostics.push(data.toString(), 'stdout'))
+  child.stderr?.on('data', (data) => coreDiagnostics.push(data.toString(), 'stderr'))
   return new Promise((resolve, reject) => {
     child.stdout?.on('data', async (data) => {
       const str = data.toString()
@@ -386,12 +396,13 @@ async function stopChildProcess(process: ChildProcess): Promise<void> {
   })
 }
 
-export async function restartCore(): Promise<void> {
+export async function restartCore(throwOnError = false): Promise<void> {
   try {
     await stopCore()
     const promises = await startCore()
     await Promise.all(promises)
   } catch (e) {
+    if (throwOnError) throw e
     showError(t('tray.coreStartError'), `${e}`)
   }
 }
@@ -452,67 +463,69 @@ export async function manualGrantCorePermition(
   const execFilePromise = promisify(execFile)
 
   const grantPermission = async (coreName: 'mihomo' | 'mihomo-alpha'): Promise<void> => {
-    const corePath = mihomoCorePath(coreName)
     try {
       if (process.platform === 'darwin') {
-        const escapedPath = corePath.replace(/"/g, '\\"')
-        const shell = `chown root:admin \\"${escapedPath}\\" && chmod +sx \\"${escapedPath}\\"`
-        const command = `do shell script "${shell}" with administrator privileges`
-        await execFilePromise('osascript', ['-e', command])
+        await grantMacCorePermission(mihomoSourcePath(coreName))
       }
       if (process.platform === 'linux') {
+        const corePath = quoteShellArg(mihomoCorePath(coreName))
         await execFilePromise('pkexec', [
           'bash',
           '-c',
-          `chown root:root "${corePath}" && chmod +sx "${corePath}"`
+          `chown root:root ${corePath} && chmod 4755 ${corePath}`
         ])
+      }
+      if (process.platform !== 'win32' && !checkCorePermissionSync(coreName)) {
+        throw new Error('Core authorization verification failed')
       }
     } catch (error) {
       if (isUserCancelledError(error)) {
         throw new UserCancelledError()
       }
-      throw error
+      await writeFile(logPath(), `[Permission]: Authorization failed: ${String(error)}\n`, {
+        flag: 'a'
+      }).catch(() => {})
+      throw new Error(t('error.coreAuthorizationFailed'), { cause: error })
     }
   }
 
   const targetCores = cores || ['mihomo', 'mihomo-alpha']
-  await Promise.all(targetCores.map((core) => grantPermission(core)))
+  await changeCorePermissions(targetCores, grantPermission)
+}
+
+async function changeCorePermissions(
+  cores: ('mihomo' | 'mihomo-alpha')[],
+  change: (core: 'mihomo' | 'mihomo-alpha') => Promise<void>
+): Promise<void> {
+  const { core: selected = 'mihomo' } = await getAppConfig()
+  let restart = false
+  try {
+    // A single password dialog at a time; retain a successful grant if another is cancelled.
+    for (const core of cores) {
+      await change(core)
+      if (core === selected) restart = true
+    }
+  } finally {
+    // Changing the file's permissions does not change an already-running process's uid.
+    // It also changes the controller socket path. Restart before reporting success.
+    if (restart && child?.pid && !child.killed) await restartCore(true)
+  }
 }
 
 export function checkCorePermissionSync(coreName: 'mihomo' | 'mihomo-alpha'): boolean {
   if (process.platform === 'win32') return true
   try {
     const corePath = mihomoCorePath(coreName)
-    const stdout = execFileSync('ls', ['-l', corePath], { encoding: 'utf8' })
-    const permissions = stdout.trim().split(/\s+/)[0]
-    return permissions.includes('s') || permissions.includes('S')
+    return hasCorePermission(corePath)
   } catch {
     return false
   }
 }
 
 export async function checkCorePermission(): Promise<{ mihomo: boolean; 'mihomo-alpha': boolean }> {
-  const execFilePromise = promisify(execFile)
-
-  const checkPermission = async (coreName: 'mihomo' | 'mihomo-alpha'): Promise<boolean> => {
-    try {
-      const corePath = mihomoCorePath(coreName)
-      const { stdout } = await execFilePromise('ls', ['-l', corePath])
-      const permissions = stdout.trim().split(/\s+/)[0]
-      return permissions.includes('s') || permissions.includes('S')
-    } catch (error) {
-      return false
-    }
-  }
-
-  const [mihomoPermission, mihomoAlphaPermission] = await Promise.all([
-    checkPermission('mihomo'),
-    checkPermission('mihomo-alpha')
-  ])
-
   return {
-    mihomo: mihomoPermission,
-    'mihomo-alpha': mihomoAlphaPermission
+    mihomo: checkCorePermissionSync('mihomo'),
+    'mihomo-alpha': checkCorePermissionSync('mihomo-alpha')
   }
 }
 
@@ -523,10 +536,11 @@ export async function revokeCorePermission(cores?: ('mihomo' | 'mihomo-alpha')[]
     const corePath = mihomoCorePath(coreName)
     try {
       if (process.platform === 'darwin') {
-        const escapedPath = corePath.replace(/"/g, '\\"')
-        const shell = `chmod a-s \\"${escapedPath}\\"`
-        const command = `do shell script "${shell}" with administrator privileges`
-        await execFilePromise('osascript', ['-e', command])
+        const source = mihomoSourcePath(coreName)
+        const targets = getMacCoreAuthorizationPaths(source)
+        if (targets.length) {
+          await runMacAdminScript(`/bin/chmod a-s ${targets.map(quoteShellArg).join(' ')}`)
+        }
       }
       if (process.platform === 'linux') {
         await execFilePromise('pkexec', ['bash', '-c', `chmod a-s "${corePath}"`])
@@ -540,7 +554,7 @@ export async function revokeCorePermission(cores?: ('mihomo' | 'mihomo-alpha')[]
   }
 
   const targetCores = cores || ['mihomo', 'mihomo-alpha']
-  await Promise.all(targetCores.map((core) => revokePermission(core)))
+  await changeCorePermissions(targetCores, revokePermission)
 }
 
 export async function getDefaultDevice(): Promise<string> {

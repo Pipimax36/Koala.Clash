@@ -3,6 +3,7 @@ import { IoRefresh, IoClose, IoCheckmarkCircle } from 'react-icons/io5'
 import { useGroups } from './hooks/use-groups'
 import { mihomoChangeProxy, mihomoGroupDelay, mihomoCloseAllConnections } from './utils/ipc'
 import { useAppConfig } from './hooks/use-app-config'
+import { useControledMihomoConfig } from './hooks/use-controled-mihomo-config'
 import { calcTraffic } from './utils/calc'
 import { t } from 'i18next'
 import { Button } from '@renderer/components/ui/button'
@@ -14,6 +15,7 @@ import {
   AccordionTrigger
 } from '@renderer/components/ui/accordion'
 import { cn } from '@renderer/lib/utils'
+import appIcon from '../../../resources/icon.png'
 
 interface TrafficData {
   up: number
@@ -24,6 +26,15 @@ const TrayMenuApp: React.FC = () => {
   const { groups, mutate } = useGroups()
   const { appConfig } = useAppConfig()
   const { autoCloseConnection } = appConfig || {}
+  const { controledMihomoConfig } = useControledMihomoConfig()
+  const { mode = 'rule' } = controledMihomoConfig || {}
+  const visibleGroups = useMemo(
+    () =>
+      groups?.filter((group) =>
+        mode === 'global' ? group.name === 'GLOBAL' : mode === 'rule' && group.name !== 'GLOBAL'
+      ) ?? [],
+    [groups, mode]
+  )
 
   const [traffic, setTraffic] = useState<TrafficData>({ up: 0, down: 0 })
   const [testingGroup, setTestingGroup] = useState<string | null>(null)
@@ -97,15 +108,14 @@ const TrayMenuApp: React.FC = () => {
   }
 
   const defaultExpandedKeys = useMemo(() => {
-    if (!groups) return []
-    return groups.slice(0, 3).map((g) => g.name)
-  }, [groups])
+    return visibleGroups.slice(0, 3).map((g) => g.name)
+  }, [visibleGroups])
 
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden rounded-xl border border-stroke bg-card/50 backdrop-blur-xl">
       <div className="flex items-center justify-between px-3 py-2 border-b border-stroke">
         <div className="flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-gradient-end-power-on animate-pulse shadow-lg shadow-gradient-end-power-on/50" />
+          <img src={appIcon} alt="" className="size-6 object-contain" />
           <span className="text-sm font-semibold">Koala Clash</span>
         </div>
         <div className="flex items-center gap-1">
@@ -130,13 +140,13 @@ const TrayMenuApp: React.FC = () => {
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        {!groups || groups.length === 0 ? (
+        {visibleGroups.length === 0 ? (
           <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
             {t('common.noData')}
           </div>
         ) : (
-          <Accordion type="multiple" defaultValue={defaultExpandedKeys} className="px-1">
-            {groups.map((group) => (
+          <Accordion key={mode} type="multiple" defaultValue={defaultExpandedKeys} className="px-1">
+            {visibleGroups.map((group) => (
               <AccordionItem key={group.name} value={group.name} className="border-b-0">
                 <AccordionTrigger className="py-2 px-2 rounded-lg hover:bg-accent/50 hover:no-underline">
                   <div className="flex items-center justify-between w-full pr-2">
@@ -158,10 +168,7 @@ const TrayMenuApp: React.FC = () => {
                         }}
                       >
                         <IoRefresh
-                          className={cn(
-                            'text-xs',
-                            testingGroup === group.name && 'animate-spin'
-                          )}
+                          className={cn('text-xs', testingGroup === group.name && 'animate-spin')}
                         />
                       </Button>
                       <span

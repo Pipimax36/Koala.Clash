@@ -1,7 +1,16 @@
 import { electronApp, is, optimizer } from '@electron-toolkit/utils'
 import { registerIpcMainHandlers } from './utils/ipc'
 import windowStateKeeper from 'electron-window-state'
-import { app, BrowserWindow, dialog, ipcMain, Menu, Notification, powerMonitor, shell } from 'electron'
+import {
+  app,
+  BrowserWindow,
+  dialog,
+  ipcMain,
+  Menu,
+  Notification,
+  powerMonitor,
+  shell
+} from 'electron'
 import { addProfileItem, getAppConfig, patchControledMihomoConfig } from './config'
 import { quitWithoutCore, startCore, stopCore } from './core/manager'
 import { triggerSysProxy } from './sys/sysproxy'
@@ -20,7 +29,6 @@ import { showFloatingWindow } from './resolve/floatingWindow'
 import { getAppConfigSync } from './config/app'
 import { declineElevation, ELEVATION_DECLINED_ARG } from './utils/elevation'
 import { t } from './utils/i18n'
-
 
 let quitTimeout: NodeJS.Timeout | null = null
 export let mainWindow: BrowserWindow | null = null
@@ -287,6 +295,7 @@ powerMonitor.on('shutdown', async () => {
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(async () => {
+  if (process.platform === 'darwin') app.dock?.setIcon(icon)
   // Set app user model id for windows
   electronApp.setAppUserModelId('koala-clash.app')
   try {
@@ -508,7 +517,7 @@ export async function createWindow(appConfig?: AppConfig): Promise<void> {
       titleBarStyle: useWindowFrame ? 'default' : 'hidden',
       titleBarOverlay: false,
       autoHideMenuBar: true,
-      ...(process.platform === 'linux' ? { icon: icon } : {}),
+      ...(process.platform !== 'darwin' ? { icon } : {}),
       webPreferences: {
         preload: join(__dirname, '../preload/index.js'),
         spellcheck: false,
@@ -589,6 +598,11 @@ export async function createWindow(appConfig?: AppConfig): Promise<void> {
 
     mainWindow.on('close', async (event) => {
       event.preventDefault()
+      const { minimizeOnClose = true } = await getAppConfig()
+      if (!minimizeOnClose) {
+        app.quit()
+        return
+      }
       mainWindow?.hide()
       if (windowShown) {
         await scheduleLightweightMode()

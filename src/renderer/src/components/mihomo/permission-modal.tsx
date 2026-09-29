@@ -35,6 +35,7 @@ const PermissionModal: React.FC<Props> = (props) => {
     { mihomo: boolean; 'mihomo-alpha': boolean } | boolean | null
   >(null)
   const isWindows = platform === 'win32'
+  const isBusy = Object.values(loading).some(Boolean)
 
   const checkPermissions = async (): Promise<void> => {
     try {
@@ -83,6 +84,9 @@ const PermissionModal: React.FC<Props> = (props) => {
         await revokeCorePermission([coreName])
       }
       await checkPermissions()
+      toast.success(
+        t(isGrant ? 'pages.mihomo.coreAuthSuccess' : 'pages.mihomo.corePermissionRevoked')
+      )
     } catch (e) {
       // Ignore user-cancelled errors
       const errorMsg = String(e)
@@ -208,7 +212,7 @@ const PermissionModal: React.FC<Props> = (props) => {
                           variant="outline"
                           className="w-full border-warning text-warning hover:bg-warning/10"
                           onClick={() => handleCoreAction('mihomo', false)}
-                          disabled={loading.mihomo}
+                          disabled={isBusy}
                         >
                           {loading.mihomo && <Spinner className="mr-2 size-4" />}
                           {t('mihomo.permissionModal.revokeAuthorization')}
@@ -218,7 +222,7 @@ const PermissionModal: React.FC<Props> = (props) => {
                           size="sm"
                           className="w-full shadow-sm"
                           onClick={() => handleCoreAction('mihomo', true)}
-                          disabled={loading.mihomo}
+                          disabled={isBusy}
                         >
                           {loading.mihomo && <Spinner className="mr-2 size-4" />}
                           {t('mihomo.permissionModal.authorizeCore')}
@@ -247,7 +251,7 @@ const PermissionModal: React.FC<Props> = (props) => {
                           variant="outline"
                           className="w-full border-warning text-warning hover:bg-warning/10"
                           onClick={() => handleCoreAction('mihomo-alpha', false)}
-                          disabled={loading['mihomo-alpha']}
+                          disabled={isBusy}
                         >
                           {loading['mihomo-alpha'] && <Spinner className="mr-2 size-4" />}
                           {t('mihomo.permissionModal.revokeAuthorization')}
@@ -257,7 +261,7 @@ const PermissionModal: React.FC<Props> = (props) => {
                           size="sm"
                           className="w-full shadow-sm"
                           onClick={() => handleCoreAction('mihomo-alpha', true)}
-                          disabled={loading['mihomo-alpha']}
+                          disabled={isBusy}
                         >
                           {loading['mihomo-alpha'] && <Spinner className="mr-2 size-4" />}
                           {t('mihomo.permissionModal.authorizeCore')}
@@ -281,11 +285,7 @@ const PermissionModal: React.FC<Props> = (props) => {
         </div>
         <DialogFooter className="flex-row justify-end gap-2">
           <DialogClose asChild>
-            <Button
-              size="sm"
-              variant="ghost"
-              disabled={Object.values(loading).some((v) => v)}
-            >
+            <Button size="sm" variant="ghost" disabled={Object.values(loading).some((v) => v)}>
               {t('common.close')}
             </Button>
           </DialogClose>

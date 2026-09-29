@@ -106,7 +106,7 @@ const AdvancedSettings: React.FC<AdvancedSettingsProps> = (props) => {
   }
 
   return (
-    <SettingCard title={t('settings.advanced.moreSettings')}>
+    <SettingCard title={t('settings.advanced.title')}>
       <SettingItem
         title={t('settings.advanced.autoEnterLightMode')}
         actions={

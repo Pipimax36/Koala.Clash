@@ -1,0 +1,412 @@
+.koala-profiles-page {
+  position: relative;
+  min-height: 0;
+}
+
+.koala-profiles-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.koala-profiles-header-actions button {
+  min-height: 32px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.koala-profiles-header-actions button[data-size='icon-sm'] {
+  width: 28px;
+  min-height: 28px;
+  height: 28px;
+}
+
+.koala-profiles-header-actions svg {
+  width: 16px;
+  height: 16px;
+}
+
+.koala-profile-inline-form {
+  display: grid;
+  gap: 15px;
+  margin-bottom: 20px;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--card);
+}
+
+.koala-profile-inline-form h3 {
+  margin-bottom: 2px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.koala-profile-inline-form label {
+  display: grid;
+  gap: 7px;
+  color: var(--muted-foreground);
+  font-size: 12px;
+}
+
+.koala-profile-inline-form input {
+  width: 100%;
+  min-width: 0;
+  min-height: 32px;
+  padding: 5px 9px;
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+.koala-profile-form-error {
+  color: var(--destructive);
+  font-size: 11px;
+}
+
+.koala-profile-update-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.koala-profile-inline-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.koala-profile-inline-actions button {
+  min-height: 32px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.koala-profiles-workspace {
+  display: grid;
+  grid-template-columns: 153px minmax(0, 1fr);
+  align-items: start;
+  gap: 16px;
+  min-width: 0;
+}
+
+.koala-profile-sources {
+  min-width: 0;
+}
+
+.koala-profile-source {
+  display: block;
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  margin-bottom: 6px;
+  padding: 11px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--foreground);
+  text-align: left;
+  cursor: grab;
+  touch-action: none;
+}
+
+.koala-profile-source:active {
+  cursor: grabbing;
+}
+
+.koala-profile-source[aria-pressed='true'] {
+  border-color: var(--border);
+  background: var(--card);
+}
+
+.koala-profile-source:hover {
+  background: var(--muted);
+}
+
+.koala-profile-source:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 1px;
+}
+
+.koala-profile-source strong,
+.koala-profile-source small {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.koala-profile-source strong {
+  margin-bottom: 6px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.koala-profile-source small {
+  color: var(--muted-foreground);
+  font-size: 11px;
+  font-weight: 400;
+}
+
+.koala-profile-detail {
+  min-width: 0;
+}
+
+.koala-profile-detail-panel,
+.ui-panel.koala-profile-detail-panel[data-current='true'] {
+  min-width: 0;
+  padding: 20px;
+  border-color: var(--border);
+}
+
+.koala-profile-detail-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.koala-profile-detail-icon {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  object-fit: contain;
+  color: var(--muted-foreground);
+}
+
+.koala-profile-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: none;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: var(--muted);
+  color: var(--muted-foreground);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.koala-profile-status[data-active='true'] {
+  background: var(--success-tint);
+  color: var(--success);
+}
+
+.koala-profile-status[data-active='true']::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.koala-profile-detail-identity {
+  position: relative;
+  margin-top: 12px;
+}
+
+.koala-profile-detail-panel .koala-profile-detail-title {
+  margin: 0 30px 5px 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.3px;
+}
+
+.koala-profile-menu-trigger {
+  position: absolute;
+  top: -2px;
+  right: 0;
+  width: 28px;
+  height: 28px;
+  padding: 5px;
+  opacity: 0;
+}
+
+.koala-profile-detail-panel:hover .koala-profile-menu-trigger,
+.koala-profile-detail-panel:focus-within .koala-profile-menu-trigger,
+.koala-profile-menu-trigger[data-state='open'] {
+  opacity: 1;
+}
+
+.koala-profile-menu-trigger svg {
+  width: 16px;
+  height: 16px;
+}
+
+.koala-profile-detail-subtitle {
+  color: var(--muted-foreground);
+  font-size: 11px;
+}
+
+.koala-profile-quota {
+  margin-top: 15px;
+  padding: 17px 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.koala-profile-quota > p {
+  margin-bottom: 9px;
+  color: var(--muted-foreground);
+  font-size: 11px;
+}
+
+.koala-profile-quota-value {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 5px;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.2px;
+}
+
+.koala-profile-quota-value strong {
+  font-size: 28px;
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+.koala-profile-quota-value small {
+  color: var(--muted-foreground);
+  font-size: 11px;
+  font-weight: 400;
+}
+
+.koala-profile-quota-track {
+  height: 5px;
+  margin: 15px 0 8px;
+  overflow: hidden;
+  border-radius: 4px;
+  background: var(--muted);
+}
+
+.koala-profile-quota-track > div {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--success);
+}
+
+.koala-profile-usage,
+.koala-profile-summary > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 11px;
+}
+
+.koala-profile-usage {
+  margin-top: 12px;
+}
+
+.koala-profile-usage > :first-child,
+.koala-profile-summary > div > :first-child {
+  color: var(--muted-foreground);
+}
+
+.koala-profile-summary {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.koala-profile-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.koala-profile-actions button {
+  min-height: 32px;
+  border-radius: 6px;
+  padding: 5px 11px;
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.koala-profile-actions svg {
+  width: 16px;
+  height: 16px;
+}
+
+.koala-profiles-empty {
+  padding: 34px 18px;
+  color: var(--muted-foreground);
+  text-align: center;
+  font-size: 12px;
+}
+
+.koala-profiles-empty h2 {
+  color: var(--foreground);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.koala-profiles-empty p {
+  margin-top: 8px;
+  font-size: 12px;
+}
+
+.koala-profiles-empty button {
+  min-height: 32px;
+  margin-top: 16px;
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+@media (max-width: 700px) {
+  .koala-profile-inline-form {
+    padding: 16px;
+  }
+
+  .koala-profiles-workspace {
+    grid-template-columns: 146px minmax(0, 1fr);
+    gap: 15px;
+  }
+
+  .koala-profile-detail-panel,
+  .ui-panel.koala-profile-detail-panel[data-current='true'] {
+    padding: 16px;
+  }
+}
+
+@media (max-width: 620px) {
+  .koala-profiles-workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .koala-profile-sources {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 7px;
+  }
+
+  .koala-profile-source {
+    margin: 0;
+    padding: 12px;
+  }
+}
+
+@media (pointer: coarse) {
+  .koala-profiles-header-actions button,
+  .koala-profile-inline-actions button,
+  .koala-profile-actions button,
+  .koala-profile-source {
+    min-height: 44px;
+  }
+
+  .koala-profile-menu-trigger {
+    opacity: 1;
+  }
+}

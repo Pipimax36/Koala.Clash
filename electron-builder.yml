@@ -3,6 +3,9 @@ productName: Koala Clash
 directories:
   buildResources: build
 files:
+  - '!dist/**'
+  - '!output/**'
+  - '!.pnpm-store/**'
   - '!**/.vscode/*'
   - '!src/*'
   - '!aur/*'
@@ -25,12 +28,15 @@ protocols:
     - 'mihomo'
     - 'koala-clash'
 win:
+  icon: build/icon.ico
   target:
     - nsis
     - 7z
-  artifactName: ${productName}_${arch}-portable.${ext}
+  artifactName: Koala.Clash_${arch}-portable.${ext}
 nsis:
-  artifactName: ${productName}_${arch}-setup.${ext}
+  installerIcon: build/installerIcon.ico
+  uninstallerIcon: build/installerIcon.ico
+  artifactName: Koala.Clash_${arch}-setup.${ext}
   uninstallDisplayName: ${productName}
   allowToChangeInstallationDirectory: true
   oneClick: false
@@ -38,6 +44,7 @@ nsis:
   createDesktopShortcut: true
   include: build/nsis/installer.nsh
 mac:
+  icon: build/icon.icns
   target:
     - pkg
   hardenedRuntime: true
@@ -49,7 +56,7 @@ mac:
     - NSMicrophoneUsageDescription: Application requests access to the device's microphone.
     - NSDocumentsFolderUsageDescription: Application requests access to the user's Documents folder.
     - NSDownloadsFolderUsageDescription: Application requests access to the user's Downloads folder.
-  artifactName: ${productName}_${arch}.${ext}
+  artifactName: Koala.Clash_${arch}.${ext}
 pkg:
   allowAnywhere: false
   allowCurrentUserHome: false
@@ -57,6 +64,7 @@ pkg:
   #   alignment: bottomleft
   #   file: build/background.png
 linux:
+  icon: build/icon.png
   desktop:
     entry:
       Name: Koala Clash
@@ -67,13 +75,13 @@ linux:
     - pacman
   maintainer: coolcoala
   category: Utility
-  artifactName: ${productName}_${arch}.${ext}
+  artifactName: Koala.Clash_${arch}.${ext}
 deb:
   afterInstall: 'build/linux/postinst'
 rpm:
   afterInstall: 'build/linux/postinst'
 pacman:
   afterInstall: 'build/linux/postinst'
-  artifactName: ${productName}_${arch}.pkg.tar.xz
+  artifactName: Koala.Clash_${arch}.pkg.tar.xz
 npmRebuild: true
 publish: []

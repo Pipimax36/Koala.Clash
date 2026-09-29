@@ -12,7 +12,6 @@ import {
 } from '@renderer/components/ui/select'
 import { Spinner } from '@renderer/components/ui/spinner'
 import { Switch } from '@renderer/components/ui/switch'
-import { Tabs, TabsList, TabsTrigger } from '@renderer/components/ui/tabs'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@renderer/components/ui/tooltip'
 import {
   applyTheme,
@@ -32,7 +31,6 @@ import {
 } from '@renderer/utils/ipc'
 import { useAppConfig } from '@renderer/hooks/use-app-config'
 import { platform } from '@renderer/utils/init'
-import { useTheme } from 'next-themes'
 import CSSEditorModal from './css-editor-modal'
 import { useTranslation } from 'react-i18next'
 import { CloudDownload, FilePenLine, Import, MessageCircleQuestionMark } from 'lucide-react'
@@ -48,7 +46,6 @@ const AppearanceConfig: React.FC<AppearanceConfigProps> = (props) => {
   const [customThemes, setCustomThemes] = useState<{ key: string; label: string }[]>()
   const [openCSSEditor, setOpenCSSEditor] = useState(false)
   const [fetching, setFetching] = useState(false)
-  const { setTheme } = useTheme()
   const {
     useDockIcon = true,
     proxyInTray = true,
@@ -56,8 +53,7 @@ const AppearanceConfig: React.FC<AppearanceConfigProps> = (props) => {
     showFloatingWindow: showFloating = false,
     spinFloatingIcon = true,
     useWindowFrame = false,
-    customTheme = 'default.css',
-    appTheme = 'system'
+    customTheme = 'default.css'
   } = appConfig || {}
   const [localShowFloating, setLocalShowFloating] = useState(showFloating)
   const [onTop, setOnTop] = useState(false)
@@ -101,7 +97,11 @@ const AppearanceConfig: React.FC<AppearanceConfigProps> = (props) => {
           actions={
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button size="icon-sm" variant="ghost">
+                <Button
+                  size="icon-sm"
+                  variant="ghost"
+                  aria-label={t('settings.appearance.showFloatingWindowHelp')}
+                >
                   <MessageCircleQuestionMark className="text-lg" />
                 </Button>
               </TooltipTrigger>
@@ -111,6 +111,7 @@ const AppearanceConfig: React.FC<AppearanceConfigProps> = (props) => {
           divider
         >
           <Switch
+            aria-label={t('settings.appearance.showFloatingWindow')}
             checked={localShowFloating}
             onCheckedChange={async (value) => {
               if (timeoutRef.current) {
@@ -135,6 +136,7 @@ const AppearanceConfig: React.FC<AppearanceConfigProps> = (props) => {
         {localShowFloating && (
           <SettingItem title={t('settings.appearance.rotateFloatingIcon')} divider>
             <Switch
+              aria-label={t('settings.appearance.rotateFloatingIcon')}
               checked={spinFloatingIcon}
               onCheckedChange={async (value) => {
                 await patchAppConfig({ spinFloatingIcon: value })
@@ -145,6 +147,7 @@ const AppearanceConfig: React.FC<AppearanceConfigProps> = (props) => {
         )}
         <SettingItem title={t('settings.appearance.disableTrayIcon')} divider>
           <Switch
+            aria-label={t('settings.appearance.disableTrayIcon')}
             checked={disableTray}
             onCheckedChange={async (value) => {
               await patchAppConfig({ disableTray: value })
@@ -160,6 +163,7 @@ const AppearanceConfig: React.FC<AppearanceConfigProps> = (props) => {
           <>
             <SettingItem title={t('settings.appearance.trayShowNodeInfo')} divider>
               <Switch
+                aria-label={t('settings.appearance.trayShowNodeInfo')}
                 checked={proxyInTray}
                 onCheckedChange={async (value) => {
                   await patchAppConfig({ proxyInTray: value })
@@ -172,6 +176,7 @@ const AppearanceConfig: React.FC<AppearanceConfigProps> = (props) => {
           <>
             <SettingItem title={t('settings.appearance.showDockIcon')} divider>
               <Switch
+                aria-label={t('settings.appearance.showDockIcon')}
                 checked={useDockIcon}
                 onCheckedChange={async (value) => {
                   await patchAppConfig({ useDockIcon: value })
@@ -183,6 +188,7 @@ const AppearanceConfig: React.FC<AppearanceConfigProps> = (props) => {
         )}
         <SettingItem title={t('settings.appearance.alwaysOnTop')} divider>
           <Switch
+            aria-label={t('settings.appearance.alwaysOnTop')}
             checked={onTop}
             onCheckedChange={async (value) => {
               await setAlwaysOnTop(value)
@@ -192,27 +198,13 @@ const AppearanceConfig: React.FC<AppearanceConfigProps> = (props) => {
         </SettingItem>
         <SettingItem title={t('settings.appearance.useSystemTitleBar')} divider>
           <Switch
+            aria-label={t('settings.appearance.useSystemTitleBar')}
             checked={useWindowFrame}
             onCheckedChange={async (value) => {
               await patchAppConfig({ useWindowFrame: value })
               await relaunchApp()
             }}
           />
-        </SettingItem>
-        <SettingItem title={t('settings.appearance.backgroundColor')} divider={showHiddenSettings}>
-          <Tabs
-            value={appTheme}
-            onValueChange={(value) => {
-              setTheme(value)
-              patchAppConfig({ appTheme: value as AppTheme })
-            }}
-          >
-            <TabsList>
-              <TabsTrigger value="system">{t('settings.appearance.auto')}</TabsTrigger>
-              <TabsTrigger value="dark">{t('settings.appearance.dark')}</TabsTrigger>
-              <TabsTrigger value="light">{t('settings.appearance.light')}</TabsTrigger>
-            </TabsList>
-          </Tabs>
         </SettingItem>
         {showHiddenSettings && (
           <SettingItem
@@ -283,7 +275,11 @@ const AppearanceConfig: React.FC<AppearanceConfigProps> = (props) => {
                   }
                 }}
               >
-                <SelectTrigger size="sm" className="w-[60%]">
+                <SelectTrigger
+                  size="sm"
+                  className="w-[60%]"
+                  aria-label={t('settings.appearance.theme')}
+                >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>

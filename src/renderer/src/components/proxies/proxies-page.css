@@ -1,0 +1,360 @@
+.koala-nodes-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.koala-nodes-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.koala-nodes-header-actions button {
+  min-height: 32px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.koala-nodes-header-actions button[data-size='icon-sm'] {
+  width: 28px;
+  min-height: 28px;
+  height: 28px;
+}
+
+.koala-nodes-header-actions .ui-outbound-switcher {
+  flex: none;
+}
+
+.koala-nodes-header-actions .ui-outbound-switcher button {
+  min-height: 28px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.koala-nodes-header-actions svg {
+  width: 16px;
+  height: 16px;
+}
+
+.koala-nodes-tabs {
+  flex: none;
+  flex-wrap: nowrap;
+  gap: 20px;
+  margin-bottom: 14px;
+  overflow-x: auto;
+}
+
+.koala-nodes-tabs button {
+  padding: 0 0 9px;
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.koala-nodes-tabs button[aria-pressed='true'] {
+  font-weight: 400;
+}
+
+.koala-nodes-tabs button span {
+  margin-left: 4px;
+  color: var(--muted-foreground);
+  font-size: 10px;
+}
+
+.koala-nodes-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 188px;
+  gap: 14px;
+  min-height: 0;
+  flex: 1;
+}
+
+.koala-nodes-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.koala-nodes-search {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  height: 32px;
+  flex: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--card);
+  padding: 0 9px;
+  color: var(--muted-foreground);
+}
+
+.koala-nodes-search svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+
+.koala-nodes-search input {
+  width: 100%;
+  height: 30px;
+  min-width: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 6px 0;
+  box-shadow: none;
+  color: var(--foreground);
+  font-size: 12px;
+}
+
+.koala-nodes-search input:focus-visible {
+  box-shadow: none;
+  outline: 0;
+}
+
+.koala-nodes-search:focus-within {
+  outline: 2px solid var(--ring);
+  outline-offset: 1px;
+}
+
+.koala-nodes-list-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  flex: none;
+  margin: 12px 0 8px;
+  color: var(--muted-foreground);
+  font-size: 11px;
+}
+
+.koala-nodes-list {
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
+}
+
+.koala-nodes-list > div {
+  height: 100%;
+}
+
+.koala-node-row,
+.koala-preview-node-row {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  min-height: 48px;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  padding: 7px 11px;
+  color: var(--foreground);
+  line-height: 1.35;
+  text-align: left;
+}
+
+/* Virtuoso wraps each item, so :last-child would remove every separator. */
+.koala-node-row[data-last='true'],
+.koala-preview-node-row[data-last='true'] {
+  border-bottom: 0;
+}
+
+.koala-node-row[aria-pressed='true'],
+.koala-preview-node-row[aria-pressed='true'] {
+  background: var(--success-tint);
+}
+
+.koala-node-row:hover,
+.koala-preview-node-row:hover {
+  background: var(--muted);
+}
+
+.koala-node-row:focus-visible,
+.koala-preview-node-row:focus-visible,
+.koala-nodes-tabs button:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: -2px;
+}
+
+.koala-node-country {
+  display: grid;
+  place-items: center;
+  width: 27px;
+  height: 24px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--muted);
+  color: var(--muted-foreground);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.3px;
+}
+
+.koala-node-row-label {
+  display: block;
+  min-width: 0;
+}
+
+.koala-node-row-name,
+.koala-node-row-type {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.koala-node-row-name {
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.koala-node-row-type {
+  margin-top: 2px;
+  color: var(--muted-foreground);
+  font-size: 11px;
+}
+
+.koala-node-row-status {
+  color: var(--success);
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.2px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.koala-node-row-status small {
+  font-size: 11px;
+}
+
+.koala-node-inspector {
+  align-self: start;
+  min-width: 0;
+  padding: 14px;
+}
+
+.koala-node-inspector-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 12px;
+  color: var(--muted-foreground);
+  font-size: 11px;
+}
+
+.koala-node-inspector h2 {
+  margin-bottom: 4px;
+  overflow-wrap: anywhere;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.koala-node-subtitle {
+  color: var(--muted-foreground);
+  font-size: 11px;
+}
+
+.koala-node-inspector dl {
+  display: grid;
+  gap: 10px;
+  margin: 17px 0;
+  font-size: 11px;
+}
+
+.koala-node-inspector dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.koala-node-inspector dt {
+  color: var(--muted-foreground);
+}
+
+.koala-node-inspector dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+  text-align: right;
+}
+
+.koala-node-latency {
+  color: var(--success);
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.koala-node-actions {
+  display: grid;
+  gap: 1px;
+}
+
+.koala-node-actions button {
+  width: 100%;
+  min-height: 32px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.koala-node-actions button[data-variant='ghost'] {
+  border-color: transparent;
+  background: transparent;
+}
+
+.koala-node-actions svg {
+  width: 16px;
+  height: 16px;
+}
+
+.koala-nodes-last-tested {
+  margin-top: 10px;
+  color: var(--muted-foreground);
+  font-size: 11px;
+}
+
+.koala-nodes-empty {
+  padding: 34px 18px;
+  color: var(--muted-foreground);
+  font-size: 12px;
+  text-align: center;
+}
+
+@media (max-width: 700px) {
+  .koala-nodes-page {
+    overflow-y: auto;
+  }
+
+  .koala-nodes-workspace {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(220px, 1fr) auto;
+  }
+
+  .koala-node-inspector dl {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .koala-node-inspector .koala-node-country {
+    display: none;
+  }
+}
+
+@media (pointer: coarse) {
+  .koala-node-actions button,
+  .koala-nodes-header-actions button,
+  .koala-nodes-header-actions .ui-outbound-switcher button,
+  .koala-nodes-tabs button {
+    min-height: 44px;
+  }
+}

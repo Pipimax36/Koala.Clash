@@ -14,6 +14,7 @@ import { Switch } from '@renderer/components/ui/switch'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@renderer/components/ui/tooltip'
 import { cn } from '@renderer/lib/utils'
 import SettingItem from '../base/base-setting-item'
+import ProfileUpdateIntervalSelect from './profile-update-interval-select'
 import { Spinner } from '@renderer/components/ui/spinner'
 import { getFilePath, readTextFile, mihomoHotReloadConfig } from '@renderer/utils/ipc'
 import { useTranslation } from 'react-i18next'
@@ -45,7 +46,11 @@ function isValidUrl(url: string): boolean {
 const EditInfoModal: React.FC<Props> = (props) => {
   const { t } = useTranslation()
   const { item, isCurrent, updateProfileItem, onClose } = props
-  const [values, setValues] = useState({ ...item, autoUpdate: item.autoUpdate ?? true })
+  const [values, setValues] = useState({
+    ...item,
+    autoUpdate: item.autoUpdate ?? true,
+    interval: !item.id && item.type === 'remote' ? (item.interval ?? 24 * 60) : item.interval
+  })
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [urlTouched, setUrlTouched] = useState(false)
   const [localFileName, setLocalFileName] = useState<string | null>(null)
@@ -56,11 +61,7 @@ const EditInfoModal: React.FC<Props> = (props) => {
   const isLocal = values.type === 'local'
   const urlInvalid = !isLocal && urlTouched && !!values.url && !isValidUrl(values.url)
 
-  const canImport = isNew
-    ? isLocal
-      ? !!values.file
-      : isValidUrl(values.url || '')
-    : true
+  const canImport = isNew ? (isLocal ? !!values.file : isValidUrl(values.url || '')) : true
 
   const onSave = async (): Promise<void> => {
     setSaving(true)
@@ -131,6 +132,38 @@ const EditInfoModal: React.FC<Props> = (props) => {
     setUrlTouched(false)
   }
 
+  const autoUpdateSettings = (
+    <SettingItem
+      title={t('profile.updateInterval')}
+      actions={
+        values.locked && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button size="icon-sm" variant="ghost" type="button">
+                <MessageCircleQuestionMark className="text-lg" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{t('profile.updateIntervalLockedHelp')}</TooltipContent>
+          </Tooltip>
+        )
+      }
+    >
+      <ProfileUpdateIntervalSelect
+        value={values.interval}
+        enabled={values.autoUpdate !== false}
+        locked={values.locked}
+        onChange={(interval) =>
+          setValues(
+            interval === null
+              ? { ...values, autoUpdate: false }
+              : { ...values, autoUpdate: true, interval }
+          )
+        }
+        disabled={saving}
+      />
+    </SettingItem>
+  )
+
   return (
     <Dialog
       open={true}
@@ -139,10 +172,7 @@ const EditInfoModal: React.FC<Props> = (props) => {
       }}
     >
       <DialogContent
-        className={cn(
-          'sm:max-w-none',
-          'w-120'
-        )}
+        className={cn('sm:max-w-none', 'w-120')}
         showCloseButton={false}
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
@@ -194,7 +224,8 @@ const EditInfoModal: React.FC<Props> = (props) => {
                     data-guide="profile-import-url-input"
                     className={cn(
                       'h-9 pr-9',
-                      urlInvalid && 'border-destructive focus-visible:border-destructive focus-visible:ring-destructive/50'
+                      urlInvalid &&
+                        'border-destructive focus-visible:border-destructive focus-visible:ring-destructive/50'
                     )}
                     placeholder={t('profile.urlPlaceholder')}
                     value={values.url || ''}
@@ -223,6 +254,12 @@ const EditInfoModal: React.FC<Props> = (props) => {
                 {urlInvalid && (
                   <p className="text-xs text-destructive">{t('profile.invalidUrl')}</p>
                 )}
+              </div>
+            )}
+
+            {!isLocal && (
+              <div className="rounded-xl border border-stroke/50 bg-accent/20 p-3 flex flex-col gap-2">
+                {autoUpdateSettings}
               </div>
             )}
 
@@ -293,41 +330,6 @@ const EditInfoModal: React.FC<Props> = (props) => {
                         onCheckedChange={(v) => setValues({ ...values, useProxy: v })}
                       />
                     </SettingItem>
-                    <SettingItem title={t('profile.autoUpdate')}>
-                      <Switch
-                        checked={values.autoUpdate ?? false}
-                        onCheckedChange={(v) => setValues({ ...values, autoUpdate: v })}
-                      />
-                    </SettingItem>
-                    {values.autoUpdate && (
-                      <SettingItem
-                        title={t('profile.updateIntervalMinutes')}
-                        actions={
-                          values.locked && (
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button size="icon-sm" variant="ghost">
-                                  <MessageCircleQuestionMark className="text-lg" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                {t('profile.updateIntervalLockedHelp')}
-                              </TooltipContent>
-                            </Tooltip>
-                          )
-                        }
-                      >
-                        <Input
-                          type="number"
-                          className="h-8 w-24"
-                          value={values.interval?.toString() ?? ''}
-                          onChange={(e) =>
-                            setValues({ ...values, interval: parseInt(e.target.value) })
-                          }
-                          disabled={values.locked}
-                        />
-                      </SettingItem>
-                    )}
                   </>
                 )}
               </div>
@@ -379,41 +381,7 @@ const EditInfoModal: React.FC<Props> = (props) => {
                     onCheckedChange={(v) => setValues({ ...values, useProxy: v })}
                   />
                 </SettingItem>
-                <SettingItem title={t('profile.autoUpdate')}>
-                  <Switch
-                    checked={values.autoUpdate ?? false}
-                    onCheckedChange={(v) => setValues({ ...values, autoUpdate: v })}
-                  />
-                </SettingItem>
-                {values.autoUpdate && (
-                  <SettingItem
-                    title={t('profile.updateIntervalMinutes')}
-                    actions={
-                      values.locked && (
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button size="icon-sm" variant="ghost">
-                              <MessageCircleQuestionMark className="text-lg" />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            {t('profile.updateIntervalLockedHelp')}
-                          </TooltipContent>
-                        </Tooltip>
-                      )
-                    }
-                  >
-                    <Input
-                      type="number"
-                      className="h-8 w-24"
-                      value={values.interval?.toString() ?? ''}
-                      onChange={(e) =>
-                        setValues({ ...values, interval: parseInt(e.target.value) })
-                      }
-                      disabled={values.locked}
-                    />
-                  </SettingItem>
-                )}
+                {autoUpdateSettings}
               </div>
             )}
           </div>

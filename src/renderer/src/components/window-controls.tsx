@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { platform } from '@renderer/utils/init'
 import { useAppConfig } from '@renderer/hooks/use-app-config'
 
 const WindowControls: React.FC = () => {
+  const { t } = useTranslation()
   const { appConfig } = useAppConfig()
   const { useWindowFrame = false } = appConfig || {}
   const [isMaximized, setIsMaximized] = useState(false)
@@ -46,8 +48,15 @@ const WindowControls: React.FC = () => {
   }
 
   const closeBtn = (
-    <button key="close" className="wc-btn wc-close" onClick={handleClose}>
-      <svg viewBox="0 0 10 10" fill="none">
+    <button
+      key="close"
+      type="button"
+      className="wc-btn wc-close"
+      aria-label={t('common.windowClose')}
+      title={t('common.windowClose')}
+      onClick={handleClose}
+    >
+      <svg viewBox="0 0 10 10" fill="none" aria-hidden="true">
         <path
           d="M1.5 1.5L8.5 8.5M8.5 1.5L1.5 8.5"
           stroke="currentColor"
@@ -59,17 +68,31 @@ const WindowControls: React.FC = () => {
   )
 
   const minimizeBtn = (
-    <button key="minimize" className="wc-btn wc-minimize" onClick={handleMinimize}>
-      <svg viewBox="0 0 10 10" fill="none">
+    <button
+      key="minimize"
+      type="button"
+      className="wc-btn wc-minimize"
+      aria-label={t('common.windowMinimize')}
+      title={t('common.windowMinimize')}
+      onClick={handleMinimize}
+    >
+      <svg viewBox="0 0 10 10" fill="none" aria-hidden="true">
         <path d="M1.5 5H8.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
       </svg>
     </button>
   )
 
   const maximizeBtn = (
-    <button key="maximize" className="wc-btn wc-maximize" onClick={handleMaximize}>
+    <button
+      key="maximize"
+      type="button"
+      className="wc-btn wc-maximize"
+      aria-label={t(isMaximized ? 'common.windowRestore' : 'common.windowMaximize')}
+      title={t(isMaximized ? 'common.windowRestore' : 'common.windowMaximize')}
+      onClick={handleMaximize}
+    >
       {isMaximized ? (
-        <svg viewBox="0 0 10 10" fill="none">
+        <svg viewBox="0 0 10 10" fill="none" aria-hidden="true">
           <path
             d="M3 1H8.5A.5.5 0 0 1 9 1.5V7"
             stroke="currentColor"
@@ -80,7 +103,7 @@ const WindowControls: React.FC = () => {
           <rect x="1" y="3" width="6" height="6" rx="0.5" stroke="currentColor" strokeWidth="1.2" />
         </svg>
       ) : (
-        <svg viewBox="0 0 10 10" fill="none">
+        <svg viewBox="0 0 10 10" fill="none" aria-hidden="true">
           <rect
             x="1.5"
             y="1.5"
@@ -100,7 +123,11 @@ const WindowControls: React.FC = () => {
     : [minimizeBtn, maximizeBtn, closeBtn]
 
   return (
-    <div className={`wc-group app-nodrag ${isMac ? `wc-mac${!isFocused ? ' wc-blurred' : ''}` : 'wc-win'}`}>{buttons}</div>
+    <div
+      className={`wc-group app-nodrag ${isMac ? `wc-mac${!isFocused ? ' wc-blurred' : ''}` : 'wc-win'}`}
+    >
+      {buttons}
+    </div>
   )
 }
 

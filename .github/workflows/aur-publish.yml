@@ -21,7 +21,7 @@ on:
 
 jobs:
   aur-publish:
-    if: github.event_name != 'release' || !github.event.release.prerelease
+    if: vars.AUR_PUBLISH_ENABLED == 'true' && (github.event_name != 'release' || !github.event.release.prerelease)
     runs-on: ubuntu-latest
     steps:
       - name: Setup SSH for AUR
@@ -85,10 +85,16 @@ jobs:
         working-directory: /tmp/aur-pkg
         env:
           PKGVER: ${{ steps.release.outputs.pkgver }}
+          TAG: ${{ steps.release.outputs.tag }}
           SHA_X86: ${{ steps.checksums.outputs.sha_x86 }}
           SHA_ARM: ${{ steps.checksums.outputs.sha_arm }}
           HAS_ARM: ${{ steps.checksums.outputs.has_arm }}
         run: |
+          sed -i "s|^url=.*|url=\"https://github.com/${GITHUB_REPOSITORY}\"|" PKGBUILD
+          sed -i '/^_release_tag=/d' PKGBUILD
+          sed -i "/^pkgver=/a _release_tag=\"${TAG}\"" PKGBUILD
+          sed -i 's|/releases/download/${pkgver}/|/releases/download/${_release_tag}/|g' PKGBUILD
+
           OLD_PKGVER=$(grep -m1 '^pkgver=' PKGBUILD | cut -d= -f2- | tr -d "\"'")
           OLD_PKGREL=$(grep -m1 '^pkgrel=' PKGBUILD | cut -d= -f2- | tr -d "\"'")
           [[ "$OLD_PKGREL" =~ ^[0-9]+$ ]] || OLD_PKGREL=0
@@ -100,7 +106,7 @@ jobs:
             sed -i 's/^arch=.*/arch=("x86_64" "aarch64")/' PKGBUILD
             # Restore the aarch64 lines if an earlier x86_64-only release stripped them
             if ! grep -q '^source_aarch64=' PKGBUILD; then
-              sed -i '/^sha256sums_x86_64=/a source_aarch64=("${pkgname}-${pkgver}_arm64.deb::${url}/releases/download/${pkgver}/Koala.Clash_arm64.deb")' PKGBUILD
+              sed -i '/^sha256sums_x86_64=/a source_aarch64=("${pkgname}-${pkgver}_arm64.deb::${url}/releases/download/${_release_tag}/Koala.Clash_arm64.deb")' PKGBUILD
             fi
             if grep -q '^sha256sums_aarch64=' PKGBUILD; then
               sed -i "s|^sha256sums_aarch64=.*|sha256sums_aarch64=('${SHA_ARM}')|" PKGBUILD

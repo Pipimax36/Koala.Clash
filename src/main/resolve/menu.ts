@@ -1,4 +1,6 @@
-import { app, Menu, shell, dialog } from 'electron'
+import { appRepositoryUrl } from '../../shared/app-update'
+import { app, Menu, shell, dialog, nativeImage } from 'electron'
+import appIcon from '../../../resources/icon.png?asset'
 import { mainWindow } from '..'
 import { getAppConfig } from '../config'
 import { quitWithoutCore } from '../core/manager'
@@ -172,13 +174,13 @@ export async function createApplicationMenu(): Promise<void> {
         {
           label: t('menu.learnMore'),
           click: () => {
-            shell.openExternal('https://github.com/coolcoala/koala-clash')
+            shell.openExternal(appRepositoryUrl)
           }
         },
         {
           label: t('menu.reportIssue'),
           click: () => {
-            shell.openExternal('https://github.com/coolcoala/koala-clash/issues')
+            shell.openExternal(`${appRepositoryUrl}/issues`)
           }
         },
         { type: 'separator' },
@@ -187,6 +189,7 @@ export async function createApplicationMenu(): Promise<void> {
           click: () => {
             dialog.showMessageBox(mainWindow!, {
               type: 'info',
+              icon: nativeImage.createFromPath(appIcon),
               title: t('menu.aboutApp'),
               message: 'Koala Clash',
               detail: `${t('menu.version')}：${app.getVersion()}\n${t('menu.electronProxyTool')}`,

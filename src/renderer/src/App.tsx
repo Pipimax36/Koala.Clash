@@ -19,9 +19,9 @@ import useSWR from 'swr'
 import ConfirmModal from '@renderer/components/base/base-confirm'
 import { SidebarProvider } from '@renderer/components/ui/sidebar'
 import AppSidebar from '@renderer/components/app-sidebar'
+import AppWorkspace from '@renderer/components/app-workspace'
 import UpdateBanner from '@renderer/components/updater/update-banner'
 import HwidLimitAlert from '@renderer/components/profiles/hwid-limit-alert'
-import WindowControls from '@renderer/components/window-controls'
 import { attachConnectionsStore } from '@renderer/store/connections-store'
 import { attachTrafficStore } from '@renderer/store/traffic-store'
 import { attachLogsStore } from '@renderer/store/logs-store'
@@ -33,7 +33,12 @@ let navigate: NavigateFunction
 const App: React.FC = () => {
   const { t } = useTranslation()
   const { appConfig } = useAppConfig()
-  const { appTheme = 'system', customTheme, autoCheckUpdate } = appConfig || {}
+  const {
+    appTheme = 'system',
+    customTheme,
+    autoCheckUpdate,
+    useWindowFrame = false
+  } = appConfig || {}
   const { setTheme, systemTheme } = useTheme()
   navigate = useNavigate()
   const page = useRoutes(routes)
@@ -144,9 +149,11 @@ const App: React.FC = () => {
 
   return (
     <SidebarProvider
+      data-density={appConfig?.uiDensity ?? 'comfortable'}
+      data-window-frame={useWindowFrame ? 'native' : 'custom'}
       defaultOpen
-      className="relative w-full h-screen overflow-hidden bg-background text-foreground"
-      style={{ '--sidebar-width': '10.5rem' } as React.CSSProperties}
+      className="ui-app-shell relative w-full h-screen overflow-hidden bg-background text-foreground"
+      style={{ '--sidebar-width': '144px' } as React.CSSProperties}
     >
       {showQuitConfirm && (
         <ConfirmModal
@@ -232,14 +239,9 @@ const App: React.FC = () => {
         />
       )}
       <HwidLimitAlert />
-      {platform === 'darwin' && (
-        <div className="fixed top-0.5 -left-1 h-14.25 flex items-center pl-3 z-100 app-drag">
-          <WindowControls />
-        </div>
-      )}
       <AppSidebar />
       {latest?.version && <UpdateBanner latest={latest} />}
-      <div className="relative z-10 main min-w-0 grow h-full overflow-hidden">{page}</div>
+      <AppWorkspace>{page}</AppWorkspace>
     </SidebarProvider>
   )
 }

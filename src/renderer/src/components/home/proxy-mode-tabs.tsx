@@ -21,7 +21,7 @@ export default function ProxyModeTabs() {
           else void apply(next)
         }}
       >
-        <TabsList className="w-full" aria-label={t('redesign.proxyMode')}>
+        <TabsList className="ui-mode-tabs w-full" aria-label={t('redesign.proxyMode')}>
           <TabsTrigger disabled={busy || !ready} className="flex-1" value="sysproxy">
             {t('redesign.defaultMode')}
           </TabsTrigger>

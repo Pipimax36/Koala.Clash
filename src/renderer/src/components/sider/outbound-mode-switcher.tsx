@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import useSWR, { mutate } from 'swr'
@@ -12,7 +12,13 @@ import {
 } from '@renderer/utils/ipc'
 import { cn } from '@renderer/lib/utils'
 
-export default function OutboundModeSwitcher() {
+interface OutboundModeSwitcherProps {
+  modes?: readonly OutboundMode[]
+}
+
+export default function OutboundModeSwitcher({
+  modes = ['rule', 'global', 'direct']
+}: OutboundModeSwitcherProps) {
   const { t } = useTranslation()
   const { appConfig } = useAppConfig()
   const { profileConfig } = useProfileConfig()
@@ -20,6 +26,17 @@ export default function OutboundModeSwitcher() {
   const { data: runtime, error, mutate: refresh } = useSWR('mihomoConfig', mihomoConfig)
   const [busy, setBusy] = useState(false)
   const lock = useRef(false)
+
+  useEffect(() => {
+    const onModeUpdated = (): void => {
+      void refresh()
+    }
+    window.electron.ipcRenderer.on('controledMihomoConfigUpdated', onModeUpdated)
+    return () => {
+      window.electron.ipcRenderer.removeListener('controledMihomoConfigUpdated', onModeUpdated)
+    }
+  }, [refresh])
+
   async function change(mode: OutboundMode): Promise<void> {
     if (lock.current || !runtime || mode === runtime.mode) return
     lock.current = true
@@ -58,9 +75,9 @@ export default function OutboundModeSwitcher() {
       role="group"
       aria-label={t('redesign.outboundMode')}
       aria-busy={busy}
-      className="flex gap-1 rounded-lg bg-muted p-1"
+      className="ui-outbound-switcher"
     >
-      {(['rule', 'global', 'direct'] as const).map((mode) => (
+      {modes.map((mode) => (
         <button
           key={mode}
           type="button"
@@ -73,7 +90,7 @@ export default function OutboundModeSwitcher() {
           }
           onClick={() => void change(mode)}
           className={cn(
-            'flex-1 rounded-md px-2 py-2 text-xs font-medium disabled:opacity-50',
+            'flex-1 disabled:opacity-50',
             runtime?.mode === mode && !error
               ? 'bg-background shadow-sm'
               : 'text-muted-foreground hover:bg-background/50'

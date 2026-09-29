@@ -9,10 +9,11 @@ import { floatingWindow } from '../resolve/floatingWindow'
 import { mihomoIpcPath } from '../utils/dirs'
 import { safeSend } from '../utils/safeSend'
 import { debounce } from '../utils/debounce'
+import { createTrafficStream } from './traffic-stream'
+import { upgradeMacCore } from './mac-core-updater'
 
 let axiosIns: AxiosInstance = null!
-let mihomoTrafficWs: WebSocket | null = null
-let trafficRetry = 10
+let trafficStream: ReturnType<typeof createTrafficStream> | null = null
 let mihomoMemoryWs: WebSocket | null = null
 let memoryRetry = 10
 let mihomoLogsWs: WebSocket | null = null
@@ -289,9 +290,10 @@ export const mihomoGroupDelay = async (
 }
 
 export const mihomoUpgrade = async (): Promise<void> => {
+  if (process.platform === 'darwin') return upgradeMacCore()
   if (process.platform === 'win32') await patchMihomoConfig({ 'log-level': 'info' })
   const instance = await getAxios()
-  return await instance.post('/upgrade')
+  return await instance.post('/upgrade', undefined, { timeout: 120000 })
 }
 
 export const mihomoUpgradeGeo = async (): Promise<void> => {
@@ -320,55 +322,39 @@ export const mihomoHotReloadConfig = async (): Promise<void> => {
 }
 
 export const startMihomoTraffic = async (): Promise<void> => {
-  await mihomoTraffic()
+  if (!trafficStream) {
+    trafficStream = createTrafficStream({
+      open: () => new WebSocket(`ws+unix:${mihomoIpcPath()}:/traffic`),
+      onMessage: (data) => {
+        let json: ControllerTraffic
+        try {
+          json = JSON.parse(data) as ControllerTraffic
+        } catch {
+          return
+        }
+        safeSend(mainWindow, 'mihomoTraffic', json)
+        try {
+          if (process.platform !== 'linux') {
+            tray?.setToolTip(
+              '↑' +
+                `${calcTraffic(json.up)}/s`.padStart(9) +
+                '\n↓' +
+                `${calcTraffic(json.down)}/s`.padStart(9)
+            )
+          }
+        } catch {
+          // A tray update must not interrupt traffic delivery.
+        }
+        safeSend(floatingWindow, 'mihomoTraffic', json)
+      }
+    })
+  }
+  trafficStream.start()
 }
 
 export const stopMihomoTraffic = (): void => {
-  if (mihomoTrafficWs) {
-    mihomoTrafficWs.removeAllListeners()
-    if (mihomoTrafficWs.readyState === WebSocket.OPEN) {
-      mihomoTrafficWs.close()
-    }
-    mihomoTrafficWs = null
-  }
-}
-
-const mihomoTraffic = async (): Promise<void> => {
-  mihomoTrafficWs = new WebSocket(`ws+unix:${mihomoIpcPath()}:/traffic`)
-
-  mihomoTrafficWs.onmessage = async (e): Promise<void> => {
-    const data = e.data as string
-    const json = JSON.parse(data) as ControllerTraffic
-    trafficRetry = 10
-    try {
-      safeSend(mainWindow, 'mihomoTraffic', json)
-      if (process.platform !== 'linux') {
-        tray?.setToolTip(
-          '↑' +
-            `${calcTraffic(json.up)}/s`.padStart(9) +
-            '\n↓' +
-            `${calcTraffic(json.down)}/s`.padStart(9)
-        )
-      }
-      safeSend(floatingWindow, 'mihomoTraffic', json)
-    } catch {
-      // ignore
-    }
-  }
-
-  mihomoTrafficWs.onclose = (): void => {
-    if (trafficRetry) {
-      trafficRetry--
-      mihomoTraffic()
-    }
-  }
-
-  mihomoTrafficWs.onerror = (): void => {
-    if (mihomoTrafficWs) {
-      mihomoTrafficWs.close()
-      mihomoTrafficWs = null
-    }
-  }
+  trafficStream?.stop()
+  trafficStream = null
 }
 
 export const startMihomoMemory = async (): Promise<void> => {

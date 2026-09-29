@@ -1,34 +1,29 @@
-import { Badge } from '@renderer/components/ui/badge'
-import { Card, CardContent } from '@renderer/components/ui/card'
-import React from 'react'
+import { useTranslation } from 'react-i18next'
 
-const RuleItem: React.FC<ControllerRulesDetail & { index: number }> = (props) => {
-  const { type, payload, proxy, index } = props
+const RuleItem: React.FC<ControllerRulesDetail & { index: number }> = ({
+  index,
+  type,
+  payload,
+  proxy,
+  size
+}) => {
+  const { t } = useTranslation()
+  const match = payload || t('redesign.matchAll')
   return (
-    <div className={`px-2 pb-2 ${index === 0 ? 'pt-2' : ''}`}>
-      <Card className="gap-0 py-0">
-        <CardContent className="w-full px-3 py-2">
-          {payload &&
-            <div
-              title={payload}
-              className="text-sm text-ellipsis whitespace-nowrap overflow-hidden mb-1"
-            >
-              {payload}
-            </div>
-          }
-          <div className="flex gap-1.5">
-            <Badge variant="outline" className="rounded-sm">
-              {type}
-            </Badge>
-            <Badge
-              variant="outline"
-              className="rounded-sm flag-emoji whitespace-nowrap overflow-hidden"
-            >
-              {proxy}
-            </Badge>
-          </div>
-        </CardContent>
-      </Card>
+    <div className="koala-rule-row">
+      <span className="koala-rule-index">{String(index + 1).padStart(2, '0')}</span>
+      <span className="koala-rule-match" title={match}>
+        <span className="koala-rule-match-text">{match}</span>
+        {size > 1 && (
+          <span className="koala-rule-count">{t('redesign.ruleCount', { count: size })}</span>
+        )}
+      </span>
+      <span className="koala-rule-type" title={type}>
+        <span>{type}</span>
+      </span>
+      <span className="koala-rule-target" title={proxy}>
+        {proxy}
+      </span>
     </div>
   )
 }

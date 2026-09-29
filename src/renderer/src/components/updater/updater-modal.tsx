@@ -1,3 +1,4 @@
+import { appReleaseUrl } from '../../../../shared/app-update'
 import { toast } from 'sonner'
 import {
   Dialog,
@@ -80,7 +81,7 @@ const UpdaterModal: React.FC<Props> = (props) => {
               variant="outline"
               className="app-nodrag"
               onClick={() => {
-                open(`https://github.com/coolcoala/koala-clash/releases/tag/${version}`)
+                open(appReleaseUrl(version))
               }}
             >
               {t('updater.goToDownload')}
@@ -121,9 +122,7 @@ const UpdaterModal: React.FC<Props> = (props) => {
         {updateStatus?.downloading && (
           <div className="space-y-2 pt-2 border-t">
             <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">
-                {t('updater.downloadProgress')}
-              </span>
+              <span className="text-sm text-muted-foreground">{t('updater.downloadProgress')}</span>
               <span className="text-sm font-medium">{updateStatus.progress}%</span>
             </div>
             <Progress value={updateStatus.progress} />

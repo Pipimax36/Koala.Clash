@@ -12,6 +12,8 @@ import pngIcon from '../../../resources/icon.png?asset'
 import pngIconOff from '../../../resources/icon_off.png?asset'
 import macIconOn from '../../../resources/icon_on_mac.png?asset'
 import macIconOff from '../../../resources/icon_off_mac.png?asset'
+import macIconOnRetina from '../../../resources/icon_on_mac@2x.png?asset'
+import macIconOffRetina from '../../../resources/icon_off_mac@2x.png?asset'
 import {
   mihomoChangeProxy,
   mihomoCloseAllConnections,
@@ -20,16 +22,7 @@ import {
   patchMihomoConfig
 } from '../core/mihomoApi'
 import { mainWindow, setNotQuitDialog, showMainWindow, triggerMainWindow } from '..'
-import {
-  app,
-  BrowserWindow,
-  clipboard,
-  ipcMain,
-  Menu,
-  nativeImage,
-  screen,
-  Tray
-} from 'electron'
+import { app, BrowserWindow, clipboard, ipcMain, Menu, nativeImage, screen, Tray } from 'electron'
 import { triggerSysProxy } from '../sys/sysproxy'
 import { quitWithoutCore } from '../core/manager'
 import { mihomoHotReloadConfig } from '../core/mihomoApi'
@@ -38,9 +31,31 @@ import { is } from '@electron-toolkit/utils'
 import { join } from 'path'
 import { applyTheme } from './theme'
 import { t } from '../utils/i18n'
+import { readFileSync } from 'fs'
 
 export let tray: Tray | null = null
 let customTrayWindow: BrowserWindow | null = null
+
+async function getTrayImage(): Promise<Electron.NativeImage | string> {
+  const { proxyMode = false } = await getAppConfig()
+  const { tun } = await getControledMihomoConfig()
+  const enabled = proxyMode || (tun?.enable ?? false)
+  if (process.platform === 'darwin') {
+    const image = nativeImage.createFromPath(enabled ? macIconOn : macIconOff)
+    // Keep Retina detail even when a bundler renames the @2x asset.
+    if (!image.getScaleFactors().includes(2)) {
+      const retina = readFileSync(enabled ? macIconOnRetina : macIconOffRetina)
+      image.addRepresentation({
+        scaleFactor: 2,
+        dataURL: `data:image/png;base64,${retina.toString('base64')}`
+      })
+    }
+    image.setTemplateImage(true)
+    return image
+  }
+  if (process.platform === 'win32') return enabled ? icoIcon : icoIconOff
+  return enabled ? pngIcon : pngIconOff
+}
 
 function formatDelayText(delay: number): string {
   if (delay === 0) {
@@ -119,6 +134,8 @@ async function showCustomTray(): Promise<void> {
   }
 
   positionCustomTrayWindow(customTrayWindow)
+  customTrayWindow.webContents.send('controledMihomoConfigUpdated')
+  customTrayWindow.webContents.send('groupsUpdated')
   customTrayWindow.show()
   customTrayWindow.focus()
 }
@@ -133,7 +150,7 @@ async function handleTrayClick(): Promise<void> {
 }
 
 export const buildContextMenu = async (): Promise<Menu> => {
-  const { mode, tun } = await getControledMihomoConfig()
+  const { mode = 'rule', tun } = await getControledMihomoConfig()
   const {
     sysProxy,
     proxyMode = false,
@@ -154,7 +171,10 @@ export const buildContextMenu = async (): Promise<Menu> => {
   if (proxyInTray && process.platform !== 'linux') {
     try {
       const groups = await mihomoGroups()
-      groupsMenu = groups.map((group) => {
+      const visibleGroups = groups.filter((group) =>
+        mode === 'global' ? group.name === 'GLOBAL' : mode === 'rule' && group.name !== 'GLOBAL'
+      )
+      groupsMenu = visibleGroups.map((group) => {
         const currentProxy = group.all.find((proxy) => proxy.name === group.now)
         const delay = currentProxy?.history.length
           ? currentProxy.history[currentProxy.history.length - 1].delay
@@ -203,7 +223,7 @@ export const buildContextMenu = async (): Promise<Menu> => {
           ]
         }
       })
-      groupsMenu.unshift({ type: 'separator' })
+      if (groupsMenu.length > 0) groupsMenu.unshift({ type: 'separator' })
     } catch (e) {
       // ignore
       // 避免出错时无法创建托盘菜单
@@ -363,22 +383,13 @@ export const buildContextMenu = async (): Promise<Menu> => {
 
 export async function createTray(): Promise<void> {
   const { useDockIcon = true } = await getAppConfig()
+  tray = new Tray(await getTrayImage())
   if (process.platform === 'linux') {
-    tray = new Tray(pngIcon)
     const menu = await buildContextMenu()
     tray.setContextMenu(menu)
   }
-  if (process.platform === 'darwin') {
-    const icon = nativeImage.createFromPath(macIconOn).resize({ height: 16 })
-    icon.setTemplateImage(true)
-    tray = new Tray(icon)
-  }
-  if (process.platform === 'win32') {
-    tray = new Tray(icoIcon)
-  }
   tray?.setToolTip('Koala Clash')
   tray?.setIgnoreDoubleClickEvents(true)
-  await updateTrayIcon()
   if (process.platform === 'darwin') {
     if (!useDockIcon && app.dock) {
       app.dock.hide()
@@ -420,6 +431,12 @@ async function updateTrayMenu(): Promise<void> {
     tray?.setContextMenu(menu)
   }
 }
+
+ipcMain.on('updateTrayMenu', () => {
+  if (!customTrayWindow || customTrayWindow.isDestroyed()) return
+  customTrayWindow.webContents.send('controledMihomoConfigUpdated')
+  customTrayWindow.webContents.send('groupsUpdated')
+})
 
 ipcMain.on('customTray:close', () => {
   hideCustomTray()
@@ -476,21 +493,9 @@ export async function closeTrayIcon(): Promise<void> {
 
 export async function updateTrayIcon(): Promise<void> {
   if (!tray) return
-  const { proxyMode = false } = await getAppConfig()
-  const { tun } = await getControledMihomoConfig()
-  const proxyEnabled = proxyMode || (tun?.enable ?? false)
-
   try {
-    if (process.platform === 'darwin') {
-      const iconPath = proxyEnabled ? macIconOn : macIconOff
-      const icon = nativeImage.createFromPath(iconPath).resize({ height: 16 })
-      icon.setTemplateImage(true)
-      tray.setImage(icon)
-    } else if (process.platform === 'win32') {
-      tray.setImage(proxyEnabled ? icoIcon : icoIconOff)
-    } else {
-      tray.setImage(proxyEnabled ? pngIcon : pngIconOff)
-    }
+    const image = await getTrayImage()
+    tray?.setImage(image)
   } catch {
     // ignore
   }

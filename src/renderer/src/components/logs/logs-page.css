@@ -1,0 +1,145 @@
+.koala-logs-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.koala-log-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.koala-log-actions [data-slot='button'] {
+  min-height: 32px;
+  font-size: 12px;
+  font-weight: 400;
+}
+.koala-log-filter-row {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.koala-log-search {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 7px;
+  min-width: 140px;
+  min-height: 32px;
+  padding: 0 9px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--card);
+  color: var(--muted-foreground);
+}
+.koala-log-search input {
+  width: 100%;
+  min-width: 0;
+  padding: 6px 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--foreground);
+  font-size: 12px;
+}
+.koala-log-level-filter {
+  width: auto;
+  min-height: 32px;
+  padding: 5px 9px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--card);
+  font-size: 12px;
+}
+.koala-log-console {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card);
+}
+.koala-log-head {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 13px 17px;
+  border-bottom: 1px solid var(--border);
+  color: var(--muted-foreground);
+  font-size: 10px;
+}
+.koala-log-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.koala-log-dot {
+  width: 6px;
+  height: 6px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--success);
+}
+.koala-log-dot[data-paused='true'] {
+  background: var(--muted-foreground);
+}
+.koala-log-list {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+.koala-log-row {
+  display: grid;
+  grid-template-columns: 76px 46px minmax(0, 1fr);
+  gap: 10px;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+  line-height: 1.5;
+  user-select: text;
+}
+.koala-log-row time,
+.koala-log-level,
+.koala-log-message {
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.2px;
+}
+.koala-log-row time {
+  color: var(--muted-foreground);
+  white-space: nowrap;
+}
+.koala-log-level[data-level='info'] {
+  color: var(--success);
+}
+.koala-log-level[data-level='warning'] {
+  color: var(--warning);
+}
+.koala-log-level[data-level='error'] {
+  color: var(--destructive);
+}
+.koala-log-message {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.koala-log-empty {
+  padding: 34px 18px;
+  color: var(--muted-foreground);
+  font-size: 12px;
+  text-align: center;
+}
+@media (max-width: 620px) {
+  .koala-log-row {
+    grid-template-columns: 76px 42px minmax(0, 1fr);
+    gap: 7px;
+    padding: 10px;
+  }
+}

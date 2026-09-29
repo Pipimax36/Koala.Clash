@@ -40,7 +40,7 @@ const ConnectionSettingModal: React.FC<Props> = (props) => {
     displayIcon = true,
     displayAppName = true,
     connectionInterval = 500,
-    connectionListMode = 'process'
+    connectionListMode = 'classic'
   } = appConfig || {}
 
   return (

@@ -1,11 +1,8 @@
 import { Button } from '@renderer/components/ui/button'
-import { platform } from '@renderer/utils/init'
-import WindowControls from '@renderer/components/window-controls'
 import React, { forwardRef, useImperativeHandle, useRef } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { cn } from '@renderer/lib/utils'
 import { useTranslation } from 'react-i18next'
-import { SidebarTrigger } from '@renderer/components/ui/sidebar'
 import { ChevronLeft } from 'lucide-react'
 
 const sidebarPaths = new Set([
@@ -18,10 +15,10 @@ const sidebarPaths = new Set([
   '/mihomo',
   '/settings'
 ])
-const isMac = platform === 'darwin'
 
 interface Props {
   title?: React.ReactNode
+  subtitle?: React.ReactNode
   header?: React.ReactNode
   children?: React.ReactNode
   contentClassName?: string
@@ -40,41 +37,32 @@ const BasePage = forwardRef<HTMLDivElement, Props>((props, ref) => {
   })
 
   return (
-    <div ref={contentRef} className="w-full h-full">
-      <div className="sticky top-0 z-40 h-14.25 w-full border-b border-border bg-background">
-        <div
-          className={cn(
-            'app-drag px-4 pt-3 pb-2 flex justify-between gap-2 h-14.25',
-            isMac && 'pl-20 md:pl-4'
-          )}
-        >
-          <div className="title min-w-0 h-full text-base font-semibold leading-8 flex items-center gap-2">
-            <SidebarTrigger
-              className="app-nodrag md:hidden"
-              aria-label={t('common.toggleSidebar')}
-            />
-            {(isSubPage || props.showBackButton) && (
-              <Button
-                size="icon-sm"
-                variant="ghost"
-                className="app-nodrag"
-                aria-label={t('redesign.back')}
-                onClick={() => navigate(-1)}
-              >
-                <ChevronLeft className="size-5" />
-              </Button>
-            )}
-            {props.title}
+    <div ref={contentRef} className="ui-base-page flex h-full w-full min-h-0 flex-col">
+      <div className="ui-page-header">
+        <div className="flex w-full flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
+            <div className="title flex min-w-0 items-center gap-2">
+              {(isSubPage || props.showBackButton) && (
+                <Button
+                  size="icon-sm"
+                  variant="ghost"
+                  className="app-nodrag"
+                  aria-label={t('redesign.back')}
+                  onClick={() => navigate(-1)}
+                >
+                  <ChevronLeft className="size-5" />
+                </Button>
+              )}
+              <h1>{props.title}</h1>
+            </div>
+            {props.subtitle && <p className="ui-page-subtitle">{props.subtitle}</p>}
           </div>
-          <div className="header app-nodrag flex gap-1 h-full items-center">
-            {props.header}
-            {!isMac && <WindowControls />}
-          </div>
+          <div className="header app-nodrag flex flex-wrap items-center gap-2">{props.header}</div>
         </div>
       </div>
       <div
         className={cn(
-          'content h-[calc(100vh-57px)] overflow-y-auto custom-scrollbar',
+          'content ui-page min-h-0 flex-1 overflow-y-auto custom-scrollbar',
           props.contentClassName
         )}
       >

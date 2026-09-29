@@ -1,0 +1,285 @@
+.koala-connections-page {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
+.koala-connection-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.koala-connection-header-actions [data-slot='button'] {
+  min-height: 32px;
+  font-size: 12px;
+  font-weight: 400;
+}
+.koala-connection-more-menu {
+  min-width: 190px;
+  max-height: min(70vh, 420px);
+  overflow-y: auto;
+  border-radius: 8px;
+  background: var(--card);
+  backdrop-filter: none;
+}
+.koala-connection-more-menu [data-slot='dropdown-menu-item'],
+.koala-connection-more-menu [data-slot='dropdown-menu-checkbox-item'],
+.koala-connection-more-menu [data-slot='dropdown-menu-label'] {
+  font-size: 11px;
+}
+.koala-connection-stats {
+  display: flex;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  gap: 32px;
+  padding-bottom: 14px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+}
+.koala-connection-stat-label {
+  color: var(--muted-foreground);
+  font-size: 11px;
+}
+.koala-connection-stat-value {
+  margin-top: 4px;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 21px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.5px;
+  line-height: 1.2;
+}
+.koala-connection-stat-value small {
+  margin-left: 4px;
+  color: var(--muted-foreground);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+.koala-connection-filter-row {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.koala-connection-search {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 7px;
+  min-width: 140px;
+  min-height: 32px;
+  padding: 0 9px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--card);
+  color: var(--muted-foreground);
+}
+.koala-connection-search input {
+  width: 100%;
+  min-width: 0;
+  padding: 6px 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--foreground);
+  font-size: 12px;
+}
+.koala-connection-outbound-filter {
+  width: auto;
+  min-height: 32px;
+  padding: 5px 9px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--card);
+  font-size: 12px;
+}
+.koala-connection-pause-note,
+.koala-connection-context {
+  flex-shrink: 0;
+  margin: -4px 0 10px;
+  color: var(--muted-foreground);
+  font-size: 11px;
+}
+.koala-connection-master-detail {
+  display: grid;
+  flex: 1;
+  grid-template-columns: minmax(0, 1fr) 188px;
+  grid-template-rows: minmax(0, 1fr);
+  align-items: start;
+  gap: 14px;
+  min-height: 0;
+}
+.koala-connection-master-detail[data-process-list='true'] {
+  grid-template-columns: minmax(0, 1fr);
+}
+.koala-connection-list {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+.koala-connection-list-head,
+.koala-connection-row,
+.koala-process-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 70px 70px;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+}
+.koala-connection-list-head {
+  flex-shrink: 0;
+  padding: 12px 9px;
+  border-bottom: 1px solid var(--border);
+  color: var(--muted-foreground);
+  font-size: 10px;
+  line-height: 1.5;
+}
+.koala-connection-list-head > :nth-child(2) {
+  text-align: center;
+}
+.koala-connection-list-head > :last-child {
+  text-align: right;
+}
+.koala-connection-list-body {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+.koala-connection-row,
+.koala-process-row {
+  min-height: 58px;
+  padding: 12px 8px;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  font-size: 11px;
+  line-height: 1.5;
+  text-align: left;
+}
+.koala-connection-row:hover,
+.koala-process-row:hover {
+  background: var(--muted);
+}
+.koala-connection-row[aria-pressed='true'] {
+  background: var(--success-tint);
+}
+.koala-connection-row > :nth-child(2),
+.koala-process-row > :nth-child(2) {
+  text-align: left;
+}
+.koala-connection-row > :last-child,
+.koala-process-row > :last-child {
+  text-align: right;
+}
+.koala-connection-row > span:first-child > span > span:first-child,
+.koala-process-row > span:first-child > span > span:first-child {
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.5;
+}
+.koala-connection-row > span:first-child > span > span:nth-child(2),
+.koala-process-row > span:first-child > span > span:nth-child(2) {
+  margin-top: 0;
+  font-size: 11px;
+  line-height: 1.5;
+}
+.koala-connection-inspector {
+  width: 188px;
+  max-height: 100%;
+  min-width: 0;
+  padding: 14px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card);
+  font-size: 11px;
+}
+.koala-connection-inspector h2 {
+  overflow-wrap: anywhere;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+.koala-connection-inspector-destination {
+  margin-top: 0;
+  overflow-wrap: anywhere;
+  color: var(--muted-foreground);
+  font-size: 11px;
+}
+.koala-connection-inspector-empty {
+  padding: 28px 2px;
+  color: var(--muted-foreground);
+  text-align: center;
+}
+.koala-connection-path {
+  padding: 12px 0;
+  margin: 12px 0 5px;
+  border-top: 1px solid var(--border);
+}
+.koala-connection-path > div {
+  position: relative;
+  padding: 0 0 12px 13px;
+  margin-left: 5px;
+  border-left: 1px solid var(--border);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+.koala-connection-path > div::before {
+  position: absolute;
+  top: 5px;
+  left: -3px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--success);
+  content: '';
+}
+.koala-connection-path > div:last-child {
+  padding-bottom: 0;
+  border-color: transparent;
+}
+.koala-connection-inspector-stats {
+  display: grid;
+  gap: 10px;
+  margin: 17px 0;
+  font-size: 11px;
+}
+.koala-connection-inspector-stats > div {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+}
+.koala-connection-inspector-stats dt {
+  color: var(--muted-foreground);
+}
+.koala-connection-inspector-stats dd {
+  margin: 0;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+}
+.koala-connection-close {
+  width: 100%;
+  min-height: 32px;
+  color: var(--destructive);
+  font-size: 12px;
+  font-weight: 400;
+}
+@media (max-width: 700px) {
+  .koala-connection-master-detail {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(140px, 1fr) auto;
+  }
+  .koala-connection-inspector {
+    width: 100%;
+  }
+}

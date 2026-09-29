@@ -1,4 +1,5 @@
 import { app, ipcMain } from 'electron'
+import { coreDiagnostics } from '../core/core-diagnostics'
 import {
   mihomoChangeProxy,
   mihomoCloseAllConnections,
@@ -85,7 +86,13 @@ import {
   getCurrentProfileStr
 } from '../core/factory'
 import { getInterfaces } from '../sys/interface'
-import { closeTrayIcon, copyEnv, setDockVisible, showTrayIcon, updateTrayIcon } from '../resolve/tray'
+import {
+  closeTrayIcon,
+  copyEnv,
+  setDockVisible,
+  showTrayIcon,
+  updateTrayIcon
+} from '../resolve/tray'
 import { registerShortcut } from '../resolve/shortcut'
 import {
   closeMainWindow,
@@ -142,6 +149,9 @@ function ipcErrorWrapper<T>( // eslint-disable-next-line @typescript-eslint/no-e
 export function registerIpcMainHandlers(): void {
   ipcMain.handle('mihomoVersion', ipcErrorWrapper(mihomoVersion))
   ipcMain.handle('mihomoConfig', ipcErrorWrapper(mihomoConfig))
+  ipcMain.handle('getCoreDiagnostics', (_event, after?: number) =>
+    coreDiagnostics.read(typeof after === 'number' && Number.isFinite(after) ? after : undefined)
+  )
   ipcMain.handle('mihomoCloseConnection', (_e, id) => ipcErrorWrapper(mihomoCloseConnection)(id))
   ipcMain.handle('mihomoCloseAllConnections', (_e, name) =>
     ipcErrorWrapper(mihomoCloseAllConnections)(name)
