@@ -21,6 +21,8 @@
 
 macOS 签名仍使用仓库原有 Apple 证书配置；未配置证书时生成未签名安装包，当前 `notarize: false`，安装包未公证。Telegram 通知与 AUR 发布默认关闭，需配置相应凭据，并分别将仓库变量 `TELEGRAM_NOTIFICATIONS_ENABLED`、`AUR_PUBLISH_ENABLED` 设为 `true`。AUR 还需要该包的维护权限。
 
+未配置 Apple 证书时，工作流对 Intel 和 Apple Silicon 的应用都明确使用 ad-hoc 临时签名。Hardened Runtime 保持开启，应用自身的 entitlements 包含 `com.apple.security.cs.disable-library-validation`，允许没有 Team ID 的 Electron 主程序加载随包携带的动态库；否则会在启动时出现 `different Team IDs` 的 dyld 崩溃。这不等于 Developer ID 签名或公证。
+
 ## 内核更新
 
 - 使用 Mihomo 官方仓库 `MetaCubeX/mihomo`，与应用仓库独立。
@@ -41,6 +43,8 @@ pnpm exec electron-vite build
 测试使用临时目录和模拟的网络、管理员授权及安装器边界，覆盖仓库选择、版本比较、发布标签、安装包完整性、安装后应用校验、内核授权持久化和失败恢复，不更新正在使用的应用或内核。真实安装和重启仍需在 macOS 上单独验收。
 
 macOS 构建后运行 `python3 scripts/verify-pkg-install-location.py dist/Koala.Clash_arm64.pkg`（Intel 包使用 `x64`）。验证器解包读取真实 `PackageInfo`，要求安装到 `/Applications` 且没有启用 bundle 重定位；仅检查 `relocatable="false"` 属性不足以发现此问题。GitHub Actions 在上传安装包前执行相同检查。
+
+另运行 `python3 scripts/verify-macos-launch.py "dist/mac-arm64/Koala Clash.app" --target-arch arm64`（Intel 使用 `dist/mac/Koala Clash.app` 与 `--target-arch x64`）。它校验主程序和 Helper 的实际签名权限，并在本机架构上通过 Electron Node 模式启动主程序、加载动态库、输出版本后退出，不加载 Koala 的业务入口。跨架构构建只做静态校验并明确记录跳过运行检查。签名完整性检查通过，并不保证动态库能够加载。
 
 ### 1.4.2 安装位置问题
 
