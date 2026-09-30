@@ -54,16 +54,30 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { createHash } from 'node:crypto'
 import { quoteShellArg } from '../src/main/core/core-permissions'
+import * as fsPromises from 'node:fs/promises'
 
-for (const corrupt of [false, true]) {
-  test(`v-tag download ${corrupt ? 'rejects a corrupt package before installation' : 'uses the release asset URL and verifies before installation'}`, async () => {
+for (const scenario of [
+  'installed',
+  'corrupt',
+  'installer failed',
+  'app missing',
+  'wrong version',
+  'wrong identifier',
+  'executable missing'
+]) {
+  test(`macOS update: ${scenario}`, async () => {
+    const corrupt = scenario === 'corrupt'
     const dir = await mkdtemp(path.join(tmpdir(), "koala's app update "))
     const data = Buffer.from('fixture installer')
     const digest = `sha256:${createHash('sha256').update(data).digest('hex')}`
-    const url = 'https://github.com/Pipimax36/Koalamo/releases/download/v1.4.2/Koala.Clash_arm64.pkg'
+    const url =
+      'https://github.com/Pipimax36/Koalamo/releases/download/v1.4.2/Koala.Clash_arm64.pkg'
     const requests: string[] = []
     let installed = false
     let proxyDisabled = false
+    const lifecycle: string[] = []
+    let relaunchOptions: { execPath: string; args: string[] } | undefined
+    const installedExecutable = '/Applications/Koala Clash.app/Contents/MacOS/Koala Clash'
     const api = loadMainModule(
       new URL('../src/main/resolve/autoUpdater.ts', import.meta.url),
       {
@@ -85,10 +99,54 @@ for (const corrupt of [false, true]) {
           CancelToken: { source: () => ({ token: {}, cancel: () => {} }) },
           isCancel: () => false
         },
-        electron: { app: { getVersion: () => '1.4.1', relaunch: () => {}, quit: () => {} } },
+        electron: {
+          app: {
+            getVersion: () => '1.4.1',
+            relaunch: (options: typeof relaunchOptions) => {
+              relaunchOptions = options
+              lifecycle.push('relaunch')
+            },
+            quit: () => lifecycle.push('quit')
+          },
+          shell: { openPath: async () => '' }
+        },
+        child_process: {
+          execFile: (
+            executable: string,
+            args: string[],
+            options: unknown,
+            callback: (error: Error | null, output?: { stdout: string }) => void
+          ) => {
+            assert.equal(executable, '/usr/bin/plutil')
+            assert.deepEqual(Array.from(args), [
+              '-convert',
+              'json',
+              '-o',
+              '-',
+              '/Applications/Koala Clash.app/Contents/Info.plist'
+            ])
+            assert.equal(installed, true)
+            lifecycle.push('verify bundle')
+            if (scenario === 'app missing') return callback(new Error('ENOENT'))
+            callback(null, {
+              stdout: JSON.stringify({
+                CFBundleIdentifier:
+                  scenario === 'wrong identifier' ? 'other.app' : 'com.koala-clash',
+                CFBundleShortVersionString: scenario === 'wrong version' ? '1.4.1' : '1.4.2'
+              })
+            })
+          }
+        },
+        'fs/promises': {
+          ...fsPromises,
+          access: async (file: string) => {
+            assert.equal(file, installedExecutable)
+            if (scenario === 'executable missing') throw new Error('ENOENT')
+          }
+        },
         '../core/factory': { getRuntimeConfig: async () => ({}) },
         '../utils/dirs': { dataDir: () => dir, isPortable: () => false },
-        '..': { setNotQuitDialog: () => {} },
+        '..': { setNotQuitDialog: () => lifecycle.push('allow quit') },
         '../sys/sysproxy': {
           disableSysProxy: () => {
             proxyDisabled = true
@@ -101,6 +159,7 @@ for (const corrupt of [false, true]) {
             const file = path.join(dir, 'updates/v1.4.2/Koala.Clash_arm64.pkg')
             assert.equal(await readFile(file, 'utf8'), data.toString())
             assert.equal(script, `/usr/sbin/installer -pkg ${quoteShellArg(file)} -target /`)
+            if (scenario === 'installer failed') throw new Error('installer failed')
             installed = true
           }
         }
@@ -110,10 +169,26 @@ for (const corrupt of [false, true]) {
     try {
       if (corrupt)
         await assert.rejects(api.downloadAndInstallUpdate('v1.4.2'), /sha256VerificationFailed/)
-      else await api.downloadAndInstallUpdate('v1.4.2')
-      assert.equal(requests[0], 'https://api.github.com/repos/Pipimax36/Koalamo/releases/tags/v1.4.2')
-      assert.equal(installed, !corrupt)
+      else if (scenario === 'installer failed')
+        await assert.rejects(api.downloadAndInstallUpdate('v1.4.2'), /installer failed/)
+      else if (scenario !== 'installed')
+        await assert.rejects(api.downloadAndInstallUpdate('v1.4.2'), /macInstallVerificationFailed/)
+      else {
+        await api.downloadAndInstallUpdate('v1.4.2')
+        assert.equal(relaunchOptions?.execPath, installedExecutable)
+        assert.deepEqual(Array.from(relaunchOptions?.args ?? ['unexpected']), [])
+        assert.deepEqual(lifecycle, ['verify bundle', 'relaunch', 'allow quit', 'quit'])
+      }
+      assert.equal(
+        requests[0],
+        'https://api.github.com/repos/Pipimax36/Koalamo/releases/tags/v1.4.2'
+      )
+      assert.equal(installed, !corrupt && scenario !== 'installer failed')
       assert.equal(proxyDisabled, !corrupt)
+      if (scenario !== 'installed') {
+        assert.equal(lifecycle.includes('relaunch'), false)
+        assert.equal(lifecycle.includes('quit'), false)
+      }
     } finally {
       await rm(dir, { recursive: true, force: true })
     }

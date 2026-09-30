@@ -60,6 +60,9 @@ mac:
 pkg:
   allowAnywhere: false
   allowCurrentUserHome: false
+  installLocation: /Applications
+  isRelocatable: false
+  overwriteAction: upgrade
   # background:
   #   alignment: bottomleft
   #   file: build/background.png

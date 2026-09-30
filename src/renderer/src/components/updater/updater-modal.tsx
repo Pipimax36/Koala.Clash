@@ -44,6 +44,7 @@ const UpdaterModal: React.FC<Props> = (props) => {
       await downloadAndInstallUpdate(version)
     } catch (e) {
       toast.error(`${e}`)
+    } finally {
       setDownloading(false)
     }
   }

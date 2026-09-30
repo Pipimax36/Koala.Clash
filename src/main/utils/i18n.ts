@@ -144,6 +144,8 @@ const zhCN: LocaleTranslations = {
     downloadFailed: '下载失败',
     invalidUpdateVersion: '更新版本信息无效，或该版本不高于当前版本',
     updateInProgress: '更新正在进行中，请稍候',
+    macInstallVerificationFailed:
+      '安装后未在“应用程序”中找到可运行的目标版本。请从 Release 页面下载安装包并重新安装。',
     coreUpdateFailed: '内核更新失败，已恢复原版本',
     coreUpdateRollbackFailed: '内核更新失败，恢复启动也未成功，请查看日志',
     coreVersionMismatch: '更新后的内核版本校验失败',
@@ -292,6 +294,8 @@ const enUS: LocaleTranslations = {
     downloadFailed: 'Download failed',
     invalidUpdateVersion: 'Invalid update version or version is not newer than the current one',
     updateInProgress: 'An update is already in progress',
+    macInstallVerificationFailed:
+      'The requested app version was not found or is not executable in Applications after installation. Download the installer from the release page and reinstall.',
     coreUpdateFailed: 'Core update failed; the previous version was restored',
     coreUpdateRollbackFailed: 'Core update and recovery restart failed; check the logs',
     coreVersionMismatch: 'Updated core version verification failed',
@@ -439,6 +443,8 @@ const ruRU: LocaleTranslations = {
     downloadFailed: 'Ошибка загрузки',
     invalidUpdateVersion: 'Некорректная версия обновления или версия не новее текущей',
     updateInProgress: 'Обновление уже выполняется',
+    macInstallVerificationFailed:
+      'После установки нужная версия приложения не найдена в папке «Программы» или не может быть запущена. Скачайте установщик со страницы релиза и повторите установку.',
     coreUpdateFailed: 'Обновление ядра не удалось; предыдущая версия восстановлена',
     coreUpdateRollbackFailed: 'Обновление и перезапуск ядра не удались; проверьте журнал',
     coreVersionMismatch: 'Версия обновлённого ядра не прошла проверку',

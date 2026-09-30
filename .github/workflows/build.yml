@@ -151,6 +151,11 @@ jobs:
             pnpm build:mac --${{ matrix.arch }}
           fi
 
+      - name: Verify macOS PKG install location
+        if: matrix.os == 'macos-latest'
+        shell: bash
+        run: python3 scripts/verify-pkg-install-location.py "dist/Koala.Clash_${{ matrix.arch }}.pkg"
+
       - name: Add Portable Flag
         if: matrix.os == 'windows-latest' && matrix.format == '7z'
         shell: pwsh

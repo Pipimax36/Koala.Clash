@@ -1,13 +1,14 @@
 import axios, { AxiosRequestConfig, CancelTokenSource } from 'axios'
 import { gt, valid } from 'semver'
 import { appReleasesApi } from '../../shared/app-update'
-import { app, shell } from 'electron'
+import { app } from 'electron'
 import { getRuntimeConfig } from '../core/factory'
 import { dataDir, exeDir, exePath, isPortable, resourcesFilesDir } from '../utils/dirs'
-import { copyFile, rm, writeFile, readFile, mkdir } from 'fs/promises'
+import { access, copyFile, rm, writeFile, readFile, mkdir } from 'fs/promises'
 import path from 'path'
-import { existsSync } from 'fs'
-import { spawn } from 'child_process'
+import { constants, existsSync } from 'fs'
+import { execFile, spawn } from 'child_process'
+import { promisify } from 'util'
 import { createHash } from 'crypto'
 import { setNotQuitDialog, mainWindow } from '..'
 import { disableSysProxy } from '../sys/sysproxy'
@@ -15,6 +16,31 @@ import { t } from '../utils/i18n'
 import { quoteShellArg, runMacAdminScript } from '../core/core-permissions'
 
 let downloadCancelToken: CancelTokenSource | null = null
+const execFileAsync = promisify(execFile)
+
+async function installedMacExecutable(version: string): Promise<string> {
+  const bundlePath = '/Applications/Koala Clash.app'
+  const executable = path.join(bundlePath, 'Contents/MacOS/Koala Clash')
+  try {
+    const { stdout } = await execFileAsync(
+      '/usr/bin/plutil',
+      ['-convert', 'json', '-o', '-', path.join(bundlePath, 'Contents/Info.plist')],
+      { encoding: 'utf8', timeout: 10000 }
+    )
+    const info = JSON.parse(stdout)
+    if (
+      info.CFBundleIdentifier !== 'com.koala-clash' ||
+      typeof info.CFBundleShortVersionString !== 'string' ||
+      valid(info.CFBundleShortVersionString) !== valid(version)
+    ) {
+      throw new Error('Installed bundle does not match the requested release')
+    }
+    await access(executable, constants.X_OK)
+    return executable
+  } catch (cause) {
+    throw new Error(t('error.macInstallVerificationFailed'), { cause })
+  }
+}
 
 interface AppRelease {
   tag_name: string
@@ -190,16 +216,12 @@ export async function downloadAndInstallUpdate(version: string): Promise<void> {
       app.quit()
     }
     if (file.endsWith('.pkg')) {
-      try {
-        await runMacAdminScript(
-          `/usr/sbin/installer -pkg ${quoteShellArg(downloadedFile)} -target /`
-        )
-        app.relaunch()
-        setNotQuitDialog()
-        app.quit()
-      } catch {
-        await shell.openPath(downloadedFile)
-      }
+      await runMacAdminScript(`/usr/sbin/installer -pkg ${quoteShellArg(downloadedFile)} -target /`)
+      const execPath = await installedMacExecutable(version)
+      // The running copy may be outside Applications (for example in a build directory).
+      app.relaunch({ execPath, args: [] })
+      setNotQuitDialog()
+      app.quit()
     }
   } catch (e) {
     await rm(downloadedFile, { force: true })
