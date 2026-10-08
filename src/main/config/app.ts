@@ -94,14 +94,21 @@ export async function getAppConfig(force = false): Promise<AppConfig> {
   return appConfig
 }
 
-export async function patchAppConfig(patch: Partial<AppConfig>): Promise<void> {
+export async function patchAppConfig(
+  patch: Partial<AppConfig>,
+  shouldApply?: (current: Readonly<AppConfig>) => boolean
+): Promise<void> {
   const previousPromise = writePromise
-  writePromise = (async () => {
+  const write = (async () => {
     await previousPromise
+    if (shouldApply && !shouldApply(appConfig)) return
     appConfig = deepMerge(appConfig, patch)
     await safeWriteConfig(stringifyYaml(encryptConfig(appConfig)))
   })()
-  await writePromise
+  // An interrupted conditional write must not block its rollback or later settings writes.
+  // Preserve the existing queue behavior for callers that do not supply a condition.
+  writePromise = shouldApply ? write.catch(() => undefined) : write
+  await write
 }
 
 export function getAppConfigSync(): AppConfig {

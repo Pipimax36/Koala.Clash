@@ -4,6 +4,9 @@ import react from '@vitejs/plugin-react'
 // https://github.com/vdesjs/vite-plugin-monaco-editor/issues/21#issuecomment-1827562674
 import monacoEditorPluginModule from 'vite-plugin-monaco-editor'
 import tailwindcss from '@tailwindcss/vite'
+import { resolveBundledWhmcsSecret } from './scripts/whmcs-build-config'
+
+const bundledWhmcsSecret = resolveBundledWhmcsSecret({ root: process.cwd() })
 
 const isObjectWithDefaultFunction = (
   module: unknown
@@ -18,6 +21,9 @@ const monacoEditorPlugin = isObjectWithDefaultFunction(monacoEditorPluginModule)
 
 export default defineConfig({
   main: {
+    define: {
+      __KOALA_WHMCS_CLIENT_SECRET__: JSON.stringify(bundledWhmcsSecret) ?? 'undefined'
+    },
     plugins: [externalizeDepsPlugin()]
   },
   preload: {

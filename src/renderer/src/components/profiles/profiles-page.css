@@ -228,13 +228,6 @@
   width: 28px;
   height: 28px;
   padding: 5px;
-  opacity: 0;
-}
-
-.koala-profile-detail-panel:hover .koala-profile-menu-trigger,
-.koala-profile-detail-panel:focus-within .koala-profile-menu-trigger,
-.koala-profile-menu-trigger[data-state='open'] {
-  opacity: 1;
 }
 
 .koala-profile-menu-trigger svg {
@@ -404,9 +397,5 @@
   .koala-profile-actions button,
   .koala-profile-source {
     min-height: 44px;
-  }
-
-  .koala-profile-menu-trigger {
-    opacity: 1;
   }
 }

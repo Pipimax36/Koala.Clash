@@ -1,0 +1,333 @@
+.ui-sidebar-account {
+  margin-top: auto;
+  padding-top: 18px;
+}
+
+.ui-sidebar-account + .ui-sidebar-foot {
+  margin-top: 0;
+  padding-top: 12px;
+}
+
+.ui-account-label {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.ui-account-label > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ui-account-caption {
+  font-size: 10px;
+  color: var(--sidebar-muted);
+}
+
+.ui-sidebar-account .ui-nav-button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.ui-auth-dialog {
+  gap: 20px;
+  padding: 28px;
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  background: var(--card);
+}
+
+.ui-auth-header {
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+}
+
+.ui-auth-symbol {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  margin-bottom: 4px;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 15px;
+  background: var(--accent);
+  color: var(--foreground);
+}
+
+.ui-auth-symbol svg {
+  width: 22px;
+  height: 22px;
+}
+
+.ui-auth-symbol[data-state='error'] {
+  color: var(--destructive);
+}
+
+.ui-auth-brand {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  color: var(--muted-foreground);
+}
+
+.ui-auth-title {
+  font-size: 20px;
+  line-height: 1.35;
+}
+
+.ui-auth-description {
+  line-height: 1.65;
+  text-wrap: pretty;
+}
+
+.ui-auth-progress {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  padding: 14px 12px;
+  border-radius: 12px;
+  background: var(--accent);
+  color: var(--muted-foreground);
+  font-size: 13px;
+}
+
+.ui-auth-progress svg {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+}
+
+.ui-auth-account {
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--border);
+}
+
+.ui-auth-identity {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.ui-auth-identity p {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.ui-auth-identity > span {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted-foreground);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.ui-auth-actions > button {
+  flex: 1;
+}
+
+.ui-auth-footnote {
+  margin-top: -6px;
+  color: var(--muted-foreground);
+  font-size: 11px;
+  line-height: 1.6;
+  text-align: center;
+}
+
+.ui-auth-dialog-account {
+  gap: 18px;
+  padding: 24px;
+}
+
+.ui-account-header {
+  padding-right: 30px;
+  text-align: left;
+}
+
+.ui-account-title {
+  font-size: 16px;
+  line-height: 1.4;
+  font-weight: 600;
+}
+
+.ui-auth-dialog-account .ui-account-actions {
+  flex-direction: row;
+  justify-content: flex-start;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.ui-account-actions .ui-account-signout {
+  width: auto;
+  margin-left: -8px;
+  padding-inline: 8px;
+  color: var(--muted-foreground);
+}
+
+.ui-account-actions .ui-account-signout:hover {
+  color: var(--foreground);
+}
+
+.ui-auth-dismiss {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border-radius: 8px;
+  color: var(--muted-foreground);
+}
+
+.ui-auth-dismiss:hover {
+  background: var(--accent);
+  color: var(--foreground);
+}
+
+.ui-auth-dismiss:focus-visible,
+.ui-account-services-list:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.ui-auth-dismiss svg {
+  width: 16px;
+  height: 16px;
+}
+
+.ui-account-services {
+  min-width: 0;
+}
+
+.ui-account-services-heading h3 {
+  color: var(--muted-foreground);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.ui-account-services-list {
+  display: grid;
+  max-height: min(320px, 44dvh);
+  margin-top: 10px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  scrollbar-width: thin;
+}
+
+.ui-account-service {
+  padding: 13px 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.ui-account-service:last-child {
+  border-bottom: 0;
+}
+
+.ui-account-service[data-active='true'] {
+  background: var(--accent);
+}
+
+.ui-account-service-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ui-account-service-details {
+  flex: 1;
+  min-width: 0;
+}
+
+.ui-account-service-name {
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.ui-account-service-meta {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted-foreground);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.ui-account-service[data-active='true'] button {
+  opacity: 1;
+  color: var(--muted-foreground);
+}
+
+.ui-account-service-error {
+  margin-top: 9px;
+  color: var(--destructive);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.ui-account-services-message {
+  display: flex;
+  min-height: 96px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 18px 14px;
+  background: var(--accent);
+  border-radius: 12px;
+  text-align: center;
+}
+
+.ui-account-services-message > svg {
+  width: 18px;
+  height: 18px;
+  color: var(--muted-foreground);
+}
+
+.ui-account-services-message p {
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+@media (max-width: 440px) {
+  .ui-auth-dialog-account {
+    padding: 20px;
+  }
+
+  .ui-account-service-row {
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .ui-account-service-details {
+    flex-basis: 150px;
+  }
+
+  .ui-account-service-row > button {
+    margin-left: auto;
+  }
+}
+
+@media (max-width: 620px) {
+  .ui-sidebar-account {
+    padding-top: 8px;
+  }
+
+  .ui-sidebar-account .ui-nav-button {
+    justify-content: flex-start;
+  }
+
+  .ui-sidebar-account .ui-account-label,
+  .ui-sidebar[data-collapsed='true'] .ui-sidebar-account .ui-account-label {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+  }
+}

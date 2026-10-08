@@ -13,6 +13,34 @@ export async function mihomoVersion(): Promise<ControllerVersion> {
   return ipcErrorWrapper(await window.electron.ipcRenderer.invoke('mihomoVersion'))
 }
 
+export async function authGetState(): Promise<KoalaAuthState> {
+  return ipcErrorWrapper(await window.electron.ipcRenderer.invoke('authGetState'))
+}
+
+export async function authLogin(): Promise<KoalaAuthState> {
+  return ipcErrorWrapper(await window.electron.ipcRenderer.invoke('authLogin'))
+}
+
+export async function authReopenLogin(): Promise<KoalaAuthState> {
+  return ipcErrorWrapper(await window.electron.ipcRenderer.invoke('authReopenLogin'))
+}
+
+export async function authLogout(): Promise<KoalaAuthState> {
+  return ipcErrorWrapper(await window.electron.ipcRenderer.invoke('authLogout'))
+}
+
+export async function authCancelLogin(): Promise<KoalaAuthState> {
+  return ipcErrorWrapper(await window.electron.ipcRenderer.invoke('authCancelLogin'))
+}
+
+export async function authListServices(): Promise<KoalaServiceListResult> {
+  return ipcErrorWrapper(await window.electron.ipcRenderer.invoke('authListServices'))
+}
+
+export async function authImportService(serviceId: number): Promise<KoalaServiceImportResult> {
+  return ipcErrorWrapper(await window.electron.ipcRenderer.invoke('authImportService', serviceId))
+}
+
 export async function mihomoConfig(): Promise<ControllerConfigs> {
   return ipcErrorWrapper(await window.electron.ipcRenderer.invoke('mihomoConfig'))
 }

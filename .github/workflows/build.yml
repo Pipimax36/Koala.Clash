@@ -129,6 +129,8 @@ jobs:
 
       - name: Build
         env:
+          KOALA_REQUIRE_WHMCS_LOGIN: '1'
+          KOALA_WHMCS_CLIENT_SECRET: ${{ secrets.KOALA_WHMCS_CLIENT_SECRET }}
           npm_config_arch: ${{ matrix.arch }}
           npm_config_target_arch: ${{ matrix.arch }}
           CSC_LINK: ${{ matrix.os == 'macos-latest' && secrets.APPLE_CERTIFICATE || '' }}
@@ -260,6 +262,7 @@ jobs:
           npm install -g pnpm@10.33.0
           SKIP_PREPARE=1 pnpm install --frozen-lockfile
           pnpm updater
+          node scripts/package-whmcs-services.mjs
 
       - uses: actions/download-artifact@v4
         with:
@@ -277,6 +280,8 @@ jobs:
           files: |
             latest.yml
             bin/dist/*
+            output/whmcs-services/*.zip
+            output/whmcs-services/*.sha256
 
       - name: Telegram Alert
         if: success() && vars.TELEGRAM_NOTIFICATIONS_ENABLED == 'true'

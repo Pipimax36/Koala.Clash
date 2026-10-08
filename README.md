@@ -98,6 +98,20 @@ pnpm build:linux deb --x64
 - **macOS**: `.pkg`
 - **Linux**: `.deb`, `.rpm`, `.pkg.tar.xz` (pacman)
 
+### Application Icons
+
+Builds use the committed icon files directly:
+
+- `build/icon.png`, `icon.ico`, `icon.icns`, and `installerIcon.ico` provide the application and installer icons.
+- `resources/icon*.png` and `icon*.ico` provide the runtime window and tray icons, including macOS Retina variants.
+- `src/renderer/src/assets/brand-mark.svg` provides the sidebar logo.
+
+When changing the logo, update these assets together. No icon generation step is required during builds.
+
+### WHMCS Sign-in
+
+Koala connects directly to WHMCS OpenID Connect. See [WHMCS direct sign-in](./docs/whmcs-direct-login.md) for runtime credential setup, verified endpoints, and validation steps.
+
 ## Credits
 
 Based on [Sparkle](https://github.com/xishang0128/sparkle) by [xishang0128](https://github.com/xishang0128).

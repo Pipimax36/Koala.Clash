@@ -7,7 +7,9 @@ import { getAppConfig, patchAppConfig } from './app'
 import { getControledMihomoConfig, patchControledMihomoConfig } from './controledMihomo'
 import { ipcMain } from 'electron'
 import { mainWindow } from '..'
-import { existsSync } from 'fs'
+import { existsSync, readFileSync, renameSync, rmSync, writeFileSync } from 'fs'
+import { randomBytes } from 'node:crypto'
+import { type ServiceImport, ServiceRequestError } from '../auth/services'
 import axios, { AxiosResponse } from 'axios'
 import https from 'https'
 import { parseYaml, stringifyYaml } from '../utils/yaml'
@@ -20,6 +22,8 @@ import { t } from '../utils/i18n'
 import { downloadCustomCss } from '../resolve/theme'
 
 let profileConfig: ProfileConfig // profile.yaml
+let profileWrites: Promise<void> = Promise.resolve()
+let profileActivations: Promise<void> = Promise.resolve()
 
 export async function getProfileConfig(force = false): Promise<ProfileConfig> {
   if (force || !profileConfig) {
@@ -31,8 +35,21 @@ export async function getProfileConfig(force = false): Promise<ProfileConfig> {
 }
 
 export async function setProfileConfig(config: ProfileConfig): Promise<void> {
+  const content = stringifyYaml(config)
   profileConfig = config
-  await writeFile(profileConfigPath(), stringifyYaml(config), 'utf-8')
+  const write = profileWrites.then(() => writeFile(profileConfigPath(), content, 'utf-8'))
+  profileWrites = write.catch(() => undefined)
+  await write
+}
+
+async function afterProfileWrites<T>(commit: () => T): Promise<T> {
+  // Include writes added while waiting. Execute the final commit without another
+  // await so an older async open/write cannot land after its atomic rename.
+  for (;;) {
+    const pending = profileWrites
+    await pending
+    if (pending === profileWrites) return commit()
+  }
 }
 
 export async function getProfileItem(id: string | undefined): Promise<ProfileItem | undefined> {
@@ -41,29 +58,134 @@ export async function getProfileItem(id: string | undefined): Promise<ProfileIte
   return items?.find((item) => item.id === id)
 }
 
-export async function changeCurrentProfile(id: string): Promise<void> {
-  const config = await getProfileConfig()
-  const current = config.current
-  config.current = id
-  await setProfileConfig(config)
+/** Called only after pending writes drain, so an old async write cannot overwrite selection. */
+function commitProfileSelection(current: string | undefined): void {
+  const next = { ...profileConfig, current }
+  const file = profileConfigPath()
+  const temporary = `${file}.select-${randomBytes(8).toString('hex')}.tmp`
   try {
-    const { useHotReloadProfile = true } = await getAppConfig()
-    if (useHotReloadProfile) {
-      await mihomoHotReloadConfig()
-    } else {
-      await restartCore()
-    }
-  } catch (e) {
-    config.current = current
-    throw e
+    writeFileSync(temporary, stringifyYaml(next), { mode: 0o600, flag: 'wx' })
+    renameSync(temporary, file)
+    profileConfig = next
   } finally {
-    await setProfileConfig(config)
+    rmSync(temporary, { force: true })
   }
-  await enforceGlobalModeRestriction(id)
-  await applyProfileExpandProxyGroups(id)
-  const profile = await getProfileItem(id)
-  await patchAppConfig({ customTheme: profile?.customCss || 'default.css' })
-  mainWindow?.webContents.send('appConfigUpdated')
+}
+
+interface ProfileActivationSettings {
+  check: () => void
+  mode?: { previous: MihomoConfig['mode']; applied: MihomoConfig['mode'] }
+  expandProxyGroups?: { previous: AppConfig['expandProxyGroups']; applied: boolean }
+  customTheme?: { previous: AppConfig['customTheme']; applied: string }
+}
+
+async function restoreProfileActivationSettings(settings: ProfileActivationSettings): Promise<void> {
+  for (const key of ['customTheme', 'expandProxyGroups'] as const) {
+    const change = settings[key]
+    if (!change) continue
+    try {
+      // Compare inside the write queue so a newer pending change also wins.
+      await patchAppConfig({ [key]: change.previous }, (current) => current[key] === change.applied)
+    } catch {
+      // Continue restoring the other settings and the core after a write failure.
+    }
+  }
+  if (settings.mode) {
+    try {
+      const { mode } = await getControledMihomoConfig()
+      if (mode === settings.mode.applied) {
+        await patchControledMihomoConfig({ mode: settings.mode.previous })
+      }
+    } catch {
+      // Continue restoring the old core even if a settings write fails.
+    }
+  }
+}
+
+export async function changeCurrentProfile(id: string, assertCurrent?: () => void): Promise<void> {
+  // Manual selections and account imports must not race their core reloads or rollbacks.
+  const task = profileActivations.then(async () => {
+    await getProfileConfig()
+    assertCurrent?.()
+    const { useHotReloadProfile = true } = await getAppConfig()
+    const reload = (): Promise<void> =>
+      useHotReloadProfile ? mihomoHotReloadConfig() : restartCore(true)
+    let previous: string | undefined
+    await afterProfileWrites(() => {
+      assertCurrent?.()
+      if (id !== 'default' && !profileConfig.items?.some((item) => item.id === id))
+        throw new Error('Profile not found')
+      previous = profileConfig.current
+      commitProfileSelection(id)
+    })
+    const check = (): void => {
+      assertCurrent?.()
+      if (profileConfig.current !== id) throw new Error('Profile selection changed')
+    }
+    const settings: ProfileActivationSettings = { check }
+    let coreAttempted = false
+    try {
+      check()
+      coreAttempted = true
+      await reload()
+      check()
+      await enforceGlobalModeRestriction(id, settings)
+      check()
+      await applyProfileExpandProxyGroups(id, settings)
+      check()
+      const profile = await getProfileItem(id)
+      check()
+      const { customTheme } = await getAppConfig()
+      check()
+      const nextTheme = profile?.customCss || 'default.css'
+      if (customTheme !== nextTheme) {
+        await patchAppConfig({ customTheme: nextTheme }, (current) => {
+          check()
+          if (current.customTheme === nextTheme) return false
+          settings.customTheme = { previous: current.customTheme, applied: nextTheme }
+          return true
+        })
+      }
+      check()
+    } catch (error) {
+      const restored = await afterProfileWrites(() => {
+        if (profileConfig.current !== id) return false
+        commitProfileSelection(
+          previous === 'default' || profileConfig.items?.some((item) => item.id === previous)
+            ? previous
+            : undefined
+        )
+        return true
+      })
+      if (restored) await restoreProfileActivationSettings(settings)
+      if (coreAttempted && restored) {
+        try {
+          // A reload can fail after applying, or the session can expire during I/O.
+          await reload()
+        } catch {
+          // Preserve the original failure; the imported file remains available for retry.
+        }
+      }
+      throw error
+    } finally {
+      const events = ['profileConfigUpdated', 'appConfigUpdated']
+      if (settings.mode) events.push('controledMihomoConfigUpdated', 'groupsUpdated')
+      for (const event of events) {
+        try {
+          mainWindow?.webContents.send(event)
+        } catch {
+          // Closing a renderer does not change the core activation result.
+        }
+      }
+      try {
+        ipcMain.emit('updateTrayMenu')
+      } catch {
+        // A tray notification cannot change the core activation result either.
+      }
+    }
+  })
+  profileActivations = task.catch(() => undefined)
+  await task
 }
 
 export async function updateProfileItem(item: ProfileItem): Promise<void> {
@@ -107,24 +229,47 @@ export async function addProfileItem(item: Partial<ProfileItem>): Promise<void> 
 
 // The `expand-proxy-groups` header lets a subscription force the corresponding app setting on
 // (or explicitly off). Profiles without the header leave the user's own choice untouched.
-async function applyProfileExpandProxyGroups(id: string): Promise<void> {
+async function applyProfileExpandProxyGroups(
+  id: string,
+  activation?: ProfileActivationSettings
+): Promise<void> {
   const profile = await getProfileItem(id)
   if (profile?.expandProxyGroups === undefined) return
+  const nextExpand = profile.expandProxyGroups
   const { expandProxyGroups } = await getAppConfig()
-  if (expandProxyGroups === profile.expandProxyGroups) return
-  await patchAppConfig({ expandProxyGroups: profile.expandProxyGroups })
+  activation?.check()
+  if (expandProxyGroups === nextExpand) return
+  await patchAppConfig(
+    { expandProxyGroups: nextExpand },
+    activation
+      ? (current) => {
+          activation.check()
+          if (current.expandProxyGroups === nextExpand) return false
+          activation.expandProxyGroups = { previous: current.expandProxyGroups, applied: nextExpand }
+          return true
+        }
+      : undefined
+  )
 }
 
-async function enforceGlobalModeRestriction(id: string): Promise<void> {
+async function enforceGlobalModeRestriction(
+  id: string,
+  activation?: ProfileActivationSettings
+): Promise<void> {
   const profile = await getProfileItem(id)
   if (profile?.globalMode === false) {
     const { mode } = await getControledMihomoConfig()
+    activation?.check()
     if (mode === 'global') {
+      if (activation) activation.mode = { previous: mode, applied: 'rule' }
       await patchControledMihomoConfig({ mode: 'rule' })
+      activation?.check()
       await patchMihomoConfig({ mode: 'rule' })
-      mainWindow?.webContents.send('controledMihomoConfigUpdated')
-      mainWindow?.webContents.send('groupsUpdated')
-      ipcMain.emit('updateTrayMenu')
+      if (!activation) {
+        mainWindow?.webContents.send('controledMihomoConfigUpdated')
+        mainWindow?.webContents.send('groupsUpdated')
+        ipcMain.emit('updateTrayMenu')
+      }
     }
   }
 }
@@ -187,7 +332,10 @@ async function downloadLogoAsBase64(
   }
 }
 
-export async function createProfile(item: Partial<ProfileItem>): Promise<ProfileItem> {
+export async function createProfile(
+  item: Partial<ProfileItem>,
+  staging?: { save(content: string): Promise<void> }
+): Promise<ProfileItem> {
   const id = item.id || new Date().getTime().toString(16)
   const newItem = {
     id,
@@ -199,7 +347,8 @@ export async function createProfile(item: Partial<ProfileItem>): Promise<Profile
     autoUpdate: item.autoUpdate ?? true,
     interval: item.interval ?? (item.type === 'remote' && !item.id ? 24 * 60 : 0),
     useProxy: item.useProxy || false,
-    updated: new Date().getTime()
+    updated: new Date().getTime(),
+    ...(item.whmcsServices && { whmcsServices: item.whmcsServices })
   } as ProfileItem
   switch (newItem.type) {
     case 'remote': {
@@ -211,6 +360,7 @@ export async function createProfile(item: Partial<ProfileItem>): Promise<Profile
 
         res = await axios.get(item.url, {
           httpsAgent,
+          ...(staging && { timeout: 12_000, maxRedirects: 0, maxContentLength: 16 * 1024 * 1024 }),
           ...(newItem.useProxy &&
             mixedPort && {
               proxy: { protocol: 'http', host: '127.0.0.1', port: mixedPort }
@@ -315,7 +465,7 @@ export async function createProfile(item: Partial<ProfileItem>): Promise<Profile
       const logoKey = Object.keys(headers).find((k) =>
         k.toLowerCase().endsWith('profile-logo')
       )
-      if (logoKey) {
+      if (logoKey && !staging) {
         const logoUrl = headers[logoKey]
         const proxyConfig =
           newItem.useProxy && mixedPort
@@ -355,7 +505,7 @@ export async function createProfile(item: Partial<ProfileItem>): Promise<Profile
       const customCssKey = Object.keys(headers).find((k) =>
         k.toLowerCase().endsWith('custom-css')
       )
-      if (customCssKey) {
+      if (customCssKey && !staging) {
         const cssUrl = headers[customCssKey]
         try {
           const proxyConfig =
@@ -393,16 +543,166 @@ export async function createProfile(item: Partial<ProfileItem>): Promise<Profile
           throw new Error(t('error.subscriptionFormatError'))
         }
       }
-      await setProfileStr(id, data)
+      if (staging) await staging.save(data)
+      else await setProfileStr(id, data)
       break
     }
     case 'local': {
       const data = item.file || ''
-      await setProfileStr(id, data)
+      if (staging) await staging.save(data)
+      else await setProfileStr(id, data)
       break
     }
   }
   return newItem
+}
+
+/** Stage network work first. The short synchronous commit cannot cross a logout/account switch. */
+export async function importServiceProfile(service: ServiceImport): Promise<{
+  profileId: string
+  alreadyImported: boolean
+}> {
+  const binding = { identity: service.identity, serviceId: service.id }
+  const matches = (item: ProfileItem): boolean =>
+    Boolean(
+      item.whmcsServices?.some(
+        (value) => value.identity === binding.identity && value.serviceId === binding.serviceId
+      )
+    )
+  const initial = await getProfileConfig()
+  service.assertCurrent()
+  const managed = initial.items?.find((item) => item.id === service.profileId && matches(item))
+  const reusable = initial.items?.find(
+    (item) =>
+      item.type === 'remote' &&
+      item.url === service.subscriptionUrl &&
+      (item.id === managed?.id || !/^whmcs-[a-f0-9]{64}$/.test(item.id)) &&
+      (!item.whmcsServices?.length ||
+        item.whmcsServices.every((value) => value.identity === service.identity))
+  )
+  if (
+    !reusable &&
+    initial.items?.some((item) => item.type === 'remote' && item.url === service.subscriptionUrl)
+  )
+    throw new ServiceRequestError('import-failed')
+  let content: string | undefined
+  let staged: ProfileItem | undefined
+  // A manual configuration is only associated; importing never replaces its content or preferences.
+  if (!reusable || reusable.id === managed?.id) {
+    if (initial.items?.some((item) => item.id === service.profileId && !matches(item)))
+      throw new ServiceRequestError('import-failed')
+    staged = await createProfile(
+      {
+        ...managed,
+        id: service.profileId,
+        name: managed?.name ?? service.name,
+        type: 'remote',
+        url: service.subscriptionUrl,
+        verify: true,
+        interval: managed?.interval ?? 24 * 60,
+        whmcsServices: [binding]
+      },
+      {
+        save: async (data) => {
+          content = data
+        }
+      }
+    )
+  }
+  const imported = await afterProfileWrites(() => {
+    const config = profileConfig
+    service.assertCurrent()
+    // Avoid overwriting a manual edit/removal made while the download was in flight.
+    const latest = config.items?.find((item) => item.id === managed?.id)
+    if (managed && latest !== managed) throw new ServiceRequestError('import-failed')
+    const currentReusable = config.items?.find(
+      (item) =>
+        item.type === 'remote' &&
+        item.url === service.subscriptionUrl &&
+        (item.id === managed?.id || !/^whmcs-[a-f0-9]{64}$/.test(item.id)) &&
+        (!item.whmcsServices?.length ||
+          item.whmcsServices.every((value) => value.identity === service.identity))
+    )
+    if (
+      !currentReusable &&
+      config.items?.some((item) => item.type === 'remote' && item.url === service.subscriptionUrl)
+    )
+      throw new ServiceRequestError('import-failed')
+    const target =
+      currentReusable && currentReusable.id !== managed?.id ? currentReusable : undefined
+    if (!target && (!staged || content === undefined))
+      throw new ServiceRequestError('import-failed')
+    if (!managed && staged && config.items?.some((item) => item.id === staged.id))
+      throw new ServiceRequestError('import-failed')
+    const item = target
+      ? {
+          ...target,
+          whmcsServices: [
+            ...(target.whmcsServices ?? []).filter(
+              (value) =>
+                !(value.identity === binding.identity && value.serviceId === binding.serviceId)
+            ),
+            binding
+          ]
+        }
+      : { ...managed, ...staged! }
+    const items = (config.items ?? []).map((existing) => {
+      if (existing.id === item.id) return item
+      if (!matches(existing)) return existing
+      return {
+        ...existing,
+        whmcsServices: existing.whmcsServices?.filter(
+          (value) => !(value.identity === binding.identity && value.serviceId === binding.serviceId)
+        )
+      }
+    })
+    if (!items.some((existing) => existing.id === item.id)) items.push(item)
+    const next = { ...config, items }
+    const suffix = `.import-${randomBytes(8).toString('hex')}.tmp`
+    const configFile = profileConfigPath()
+    const profileFile = profilePath(item.id)
+    const configTemp = configFile + suffix
+    const profileTemp = profileFile + suffix
+    let previous: Buffer | undefined
+    let wroteProfile = false
+    service.assertCurrent()
+    try {
+      writeFileSync(configTemp, stringifyYaml(next), { mode: 0o600, flag: 'wx' })
+      if (!target) {
+        previous = existsSync(profileFile) ? readFileSync(profileFile) : undefined
+        writeFileSync(profileTemp, content!, { mode: 0o600, flag: 'wx' })
+        renameSync(profileTemp, profileFile)
+        wroteProfile = true
+      }
+      renameSync(configTemp, configFile)
+      profileConfig = next
+    } catch {
+      if (wroteProfile) {
+        if (previous) writeFileSync(profileFile, previous)
+        else rmSync(profileFile, { force: true })
+      }
+      throw new ServiceRequestError('import-failed')
+    } finally {
+      rmSync(configTemp, { force: true })
+      rmSync(profileTemp, { force: true })
+    }
+    // Publish the saved profile even if the following core activation fails.
+    try {
+      mainWindow?.webContents.send('profileConfigUpdated')
+      ipcMain.emit('updateTrayMenu')
+    } catch {
+      // A closing renderer does not undo a committed import.
+    }
+    return { profileId: item.id, alreadyImported: Boolean(target || managed) }
+  })
+  try {
+    await changeCurrentProfile(imported.profileId, service.assertCurrent)
+  } catch (error) {
+    service.assertCurrent()
+    if (error instanceof ServiceRequestError) throw error
+    throw new ServiceRequestError('activation-failed')
+  }
+  return imported
 }
 
 export async function getProfileStr(id: string | undefined): Promise<string> {

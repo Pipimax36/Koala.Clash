@@ -68,3 +68,18 @@ test('build and publish consume one release identity', () => {
   )
   assert.equal(workflow.jobs['pre-release'].if, "needs.version.outputs.prerelease == 'true'")
 })
+
+test('release builds require the login secret only in the main-process build step', () => {
+  const workflow = YAML.parse(
+    readFileSync(new URL('../.github/workflows/build.yml', import.meta.url), 'utf8')
+  )
+  const steps = workflow.jobs.build.steps
+  const build = steps.find((step: { name?: string }) => step.name === 'Build')
+  assert.equal(build.env.KOALA_REQUIRE_WHMCS_LOGIN, '1')
+  assert.equal(build.env.KOALA_WHMCS_CLIENT_SECRET, '${{ secrets.KOALA_WHMCS_CLIENT_SECRET }}')
+  for (const step of steps.filter((step: { name?: string }) => step.name !== 'Build')) {
+    assert.equal(step.env?.KOALA_WHMCS_CLIENT_SECRET, undefined)
+  }
+  assert.equal(workflow.env?.KOALA_WHMCS_CLIENT_SECRET, undefined)
+  assert.equal(workflow.jobs.build.env?.KOALA_WHMCS_CLIENT_SECRET, undefined)
+})

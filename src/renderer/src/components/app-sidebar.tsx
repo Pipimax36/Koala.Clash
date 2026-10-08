@@ -14,6 +14,7 @@ import {
 import { useSidebar } from '@renderer/components/ui/sidebar'
 import { useProxyControl } from '@renderer/hooks/use-proxy-control'
 import ConfigViewer from '@renderer/components/sider/config-viewer'
+import AccountControl from '@renderer/components/auth/account-control'
 import brandMark from '@renderer/assets/brand-mark.svg'
 
 export const workspacePages = [
@@ -70,6 +71,7 @@ export default function AppSidebar() {
           )
         })}
       </nav>
+      <AccountControl />
       <div className="ui-sidebar-foot" role="status">
         <div className="ui-sidebar-core">
           <span className="ui-dot" data-state={coreState} aria-hidden="true" /> <span>Mihomo</span>

@@ -3,6 +3,7 @@ productName: Koala Clash
 directories:
   buildResources: build
 files:
+  - '!.secrets/**'
   - '!dist/**'
   - '!output/**'
   - '!.pnpm-store/**'
@@ -10,6 +11,9 @@ files:
   - '!src/*'
   - '!aur/*'
   - '!images/*'
+  - '!docs/**'
+  - '!tests/**'
+  - '!integrations/**'
   - '!scripts/*'
   - '!extra/*'
   - '!tailwind.config.js'

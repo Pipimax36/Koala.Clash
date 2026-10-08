@@ -1,4 +1,78 @@
 export default {
+  auth: {
+    account: 'Account',
+    accountTitle: 'My account',
+    accountFor: 'Manage account: {{name}}',
+    signIn: 'Sign in',
+    signingIn: 'Signing in',
+    signedIn: 'Signed in',
+    signedOut: 'Signed out',
+    signedInDescription: 'Connected to your COOLGO account.',
+    waitingTitle: 'Continue in your browser',
+    waitingDescription: 'After signing in, allow your browser to open Koala to return.',
+    waiting: 'Waiting for you to sign in…',
+    waitingHint: 'You can close this window while sign-in continues.',
+    openingBrowser: 'Opening your browser…',
+    providerHint: 'Sign in with your COOLGO website account.',
+    loginFailed: 'Unable to sign in',
+    loginSuccess: 'You’re signed in',
+    loading: 'Checking sign-in status…',
+    reopenBrowser: 'Reopen browser',
+    tryAgain: 'Try again',
+    cancelLogin: 'Cancel sign-in',
+    signOut: 'Sign out',
+    logoutHint: 'Signing out of this app keeps your website session in the browser.',
+    memoryOnly: 'This session lasts while Koala is open. You’ll need to sign in next time.',
+    services: {
+      title: 'Subscriptions',
+      description: 'Import a service and enable it immediately in Koala.',
+      loading: 'Loading services…',
+      retry: 'Try again',
+      empty: 'No subscriptions yet',
+      emptyDescription: 'Once your purchased service is active, reopen this window to see it.',
+      import: 'Import & enable',
+      importing: 'Importing…',
+      imported: 'Imported',
+      activate: 'Enable',
+      activating: 'Enabling…',
+      active: 'In use',
+      activateName: 'Enable {{name}}',
+      activeName: '{{name}} is in use',
+      importName: 'Import and enable {{name}}',
+      importedName: '{{name}} is imported',
+      serviceId: 'Service #{{id}}',
+      nextDueDate: 'Expires {{date}}',
+      errors: {
+        'not-signed-in': 'Sign out, then sign in again to view your services.',
+        'session-changed': 'Your account changed. Close and reopen this window.',
+        'network-error': 'Could not load services. Check your connection and try again.',
+        'plugin-unavailable': 'Services are temporarily unavailable. Try again later.',
+        'configuration-error': 'The service connection is not ready. Contact support.',
+        'access-denied': 'Your account cannot access the service list. Contact support.',
+        'service-unavailable': 'This service is temporarily unavailable. Try again later.',
+        'invalid-response': 'Could not read the service information. Try again later.',
+        'import-failed': 'Import failed. Please try again.',
+        'activation-failed':
+          'The subscription was imported but could not be enabled. Please try again.'
+      }
+    },
+    errors: {
+      'browser-open-failed': 'Unable to open your browser. Set a default browser and try again.',
+      'protocol-unavailable':
+        'Koala cannot receive the sign-in result. Try again using the latest installed version.',
+      'protocol-conflict':
+        'Another copy of Koala is receiving sign-in results. Install the current version and reopen it from Applications.',
+      'login-expired': 'This sign-in attempt expired. Please start again.',
+      'invalid-callback': 'Unable to verify the sign-in result. Start a new sign-in from Koala.',
+      'access-denied': 'Sign-in authorization was not completed. Please try again.',
+      'network-error': 'Unable to reach the sign-in server. Check your connection and try again.',
+      'session-expired': 'Your session expired. Please sign in again.',
+      'configuration-error': 'Sign-in is not configured. Please contact the app provider.',
+      'identity-invalid': 'Unable to verify this sign-in. Please sign in again.',
+      'server-error': 'The sign-in service is unavailable. Please try again later.',
+      'storage-error': 'Unable to save your sign-in state. Please try again.'
+    }
+  },
   redesign: {
     duplicateProfile: 'This subscription already exists',
     addCustomRule: 'Add custom rule',
@@ -988,7 +1062,7 @@ export default {
 
   profile: {
     editInfo: 'Edit Info',
-    editFile: 'Edit File',
+    editFile: 'Edit Config',
     editRule: 'Edit Rules',
     editRules: {
       title: 'Edit Rules',

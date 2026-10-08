@@ -352,7 +352,7 @@ const ProfileItem: React.FC<Props> = (props) => {
             <span>
               {daysRemaining !== null
                 ? t('redesign.remainingDays', { count: Number(daysRemaining) })
-                : t('redesign.notProvided')}
+                : t('profile.longTermValid')}
             </span>
           </div>
         </div>
@@ -396,6 +396,10 @@ const ProfileItem: React.FC<Props> = (props) => {
               {t('profile.updateSubscription')}
             </Button>
           )}
+          <Button size="sm" variant="outline" onClick={() => setOpenFileEditor(true)}>
+            <FileText aria-hidden="true" />
+            {t('profile.editFile')}
+          </Button>
           {isCurrent && (
             <Button
               size="sm"
@@ -406,6 +410,15 @@ const ProfileItem: React.FC<Props> = (props) => {
               <ChevronRight aria-hidden="true" />
             </Button>
           )}
+          <Button
+            size="sm"
+            variant="ghost"
+            className="ml-auto text-destructive hover:bg-destructive/10 hover:text-destructive"
+            onClick={() => setConfirmOpen(true)}
+          >
+            <Trash2 aria-hidden="true" />
+            {t('profile.delete')}
+          </Button>
         </div>
       </div>
     </div>

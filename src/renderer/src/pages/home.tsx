@@ -408,7 +408,7 @@ const Home: React.FC = () => {
                       ? expired
                         ? t('pages.home.subscriptionExpired')
                         : t('redesign.expiresInDays', { count: days })
-                      : t('redesign.notProvided')}
+                      : t('profile.longTermValid')}
                   </span>
                 </div>
               </div>

@@ -13,6 +13,7 @@ import { Switch } from '@renderer/components/ui/switch'
 import GeneralConfig from '@renderer/components/settings/general-config'
 import AdvancedSettings from '@renderer/components/settings/advanced-settings'
 import Actions from '@renderer/components/settings/actions'
+import CheckUpdateButton from '@renderer/components/updater/check-update-button'
 import ShortcutConfig from '@renderer/components/settings/shortcut-config'
 import AppearanceConfig from '@renderer/components/settings/appearance-confis'
 import { useAppConfig } from '@renderer/hooks/use-app-config'
@@ -357,6 +358,7 @@ const Settings: React.FC = () => {
                 />
                 <h2>Koala Studio</h2>
                 <p>{version ? 'v' + version : 'Koala'}</p>
+                <CheckUpdateButton variant="outline" className="mt-4" />
               </div>
               <SettingsRow title={t('pages.settings.githubRepo')} description={appRepositoryUrl}>
                 <Button variant="outline" onClick={() => window.open(appRepositoryUrl)}>

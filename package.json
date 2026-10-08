@@ -1,6 +1,6 @@
 {
   "name": "koala-clash",
-  "version": "1.4.3",
+  "version": "1.4.4",
   "description": "Koala Clash",
   "main": "./out/main/index.js",
   "author": "xishang0128, co-author: coolcoala",
@@ -17,11 +17,10 @@
     "telegram": "node scripts/telegram.mjs",
     "artifact": "node scripts/artifact.mjs",
     "dev": "electron-vite dev",
-    "icons:build": "node scripts/build-icons.mjs",
     "postinstall": "electron-builder install-app-deps",
-    "build:win": "pnpm icons:build && electron-vite build && electron-builder --publish never --win",
-    "build:mac": "pnpm icons:build && electron-vite build && electron-builder --publish never --mac",
-    "build:linux": "pnpm icons:build && electron-vite build && electron-builder --publish never --linux"
+    "build:win": "electron-vite build && electron-builder --publish never --win",
+    "build:mac": "electron-vite build && electron-builder --publish never --mac",
+    "build:linux": "electron-vite build && electron-builder --publish never --linux"
   },
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.2",
@@ -99,7 +98,6 @@
     "react-router-dom": "^7.14.1",
     "react-virtuoso": "^4.18.5",
     "recharts": "^3.8.1",
-    "sharp": "0.35.4",
     "swr": "^2.4.1",
     "tailwindcss": "^4.2.2",
     "tar": "7.5.13",

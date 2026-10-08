@@ -1,23 +1,17 @@
-/* eslint-disable react/prop-types */
-import { toast } from 'sonner'
 import { Button } from '@renderer/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@renderer/components/ui/tooltip'
 import SettingCard from '../base/base-setting-card'
 import SettingItem from '../base/base-setting-item'
 import {
-  checkUpdate,
   createHeapSnapshot,
   mihomoVersion,
   quitApp,
   quitWithoutCore,
-  resetAppConfig,
-  cancelUpdate
+  resetAppConfig
 } from '@renderer/utils/ipc'
 import { useState, useRef } from 'react'
 import useSWR from 'swr'
-import { useUpdaterStore } from '@renderer/store/updater-store'
-import { useShallow } from 'zustand/react/shallow'
-import UpdaterModal from '../updater/updater-modal'
+import CheckUpdateButton from '../updater/check-update-button'
 import { version } from '@renderer/utils/init'
 import { startTour } from '@renderer/utils/driver'
 import { useNavigate } from 'react-router-dom'
@@ -37,25 +31,8 @@ const Actions: React.FC<ActionsProps> = (props) => {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const { data: coreVersion } = useSWR('mihomoVersion', mihomoVersion)
-  const [newVersion, setNewVersion] = useState('')
-  const [changelog, setChangelog] = useState('')
-  const [openUpdate, setOpenUpdate] = useState(false)
-  const [checkingUpdate, setCheckingUpdate] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
   const versionTapCountRef = useRef(0)
-  const updateStatus = useUpdaterStore(
-    useShallow((s) => ({ downloading: s.downloading, progress: s.progress, error: s.error }))
-  )
-  const resetUpdateStatus = useUpdaterStore((s) => s.reset)
-
-  const handleCancelUpdate = async (): Promise<void> => {
-    try {
-      await cancelUpdate()
-      resetUpdateStatus()
-    } catch (e) {
-      // ignore
-    }
-  }
 
   const handleVersionClick = (): void => {
     if (showHiddenSettings) return
@@ -67,15 +44,6 @@ const Actions: React.FC<ActionsProps> = (props) => {
 
   return (
     <>
-      {openUpdate && (
-        <UpdaterModal
-          onClose={() => setOpenUpdate(false)}
-          version={newVersion}
-          changelog={changelog}
-          updateStatus={updateStatus}
-          onCancel={handleCancelUpdate}
-        />
-      )}
       {confirmOpen && (
         <ConfirmModal
           onChange={setConfirmOpen}
@@ -104,29 +72,7 @@ const Actions: React.FC<ActionsProps> = (props) => {
           </Button>
         </SettingItem>
         <SettingItem title={t('settings.actions.checkUpdate')} divider>
-          <Button
-            size="sm"
-            disabled={checkingUpdate}
-            onClick={async () => {
-              try {
-                setCheckingUpdate(true)
-                const version = await checkUpdate()
-                if (version) {
-                  setNewVersion(version.version)
-                  setChangelog(version.changelog)
-                  setOpenUpdate(true)
-                } else {
-                  toast.success(t('settings.actions.noNeedUpdate'))
-                }
-              } catch (e) {
-                toast.error(`${e}`)
-              } finally {
-                setCheckingUpdate(false)
-              }
-            }}
-          >
-            {t('settings.actions.checkUpdate')}
-          </Button>
+          <CheckUpdateButton />
         </SettingItem>
         <SettingItem
           title={t('settings.actions.resetApp')}

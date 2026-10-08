@@ -117,6 +117,8 @@ interface ProfileConfig {
 }
 
 interface ProfileItem {
+  /** Main-process bindings for services explicitly imported by an authenticated account. */
+  whmcsServices?: { identity: string; serviceId: number }[]
   id: string
   type: 'remote' | 'local'
   name: string

@@ -29,6 +29,8 @@ import { showFloatingWindow } from './resolve/floatingWindow'
 import { getAppConfigSync } from './config/app'
 import { declineElevation, ELEVATION_DECLINED_ARG } from './utils/elevation'
 import { t } from './utils/i18n'
+import { handleAuthCallback } from './auth'
+import { createDeepLinkDispatcher } from './utils/deep-link-dispatcher'
 
 let quitTimeout: NodeJS.Timeout | null = null
 export let mainWindow: BrowserWindow | null = null
@@ -49,7 +51,13 @@ export function showError(title: string, message: string): void {
     dialog.showErrorBox(title, message)
   }
 }
-let pendingDeepLink: string | null = null
+const deepLinks = createDeepLinkDispatcher({
+  showWindow: showMainWindow,
+  canHandle: () =>
+    Boolean(mainWindow && !mainWindow.isDestroyed() && !mainWindow.webContents.isLoading()),
+  handle: handleDeepLink,
+  onError: () => showError('Koala', t('error.requestFailed'))
+})
 let isCreatingWindow = false
 let windowShown = false
 let createWindowPromiseResolve: (() => void) | null = null
@@ -160,32 +168,22 @@ if (syncConfig.disableGPU) {
   app.disableHardwareAcceleration()
 }
 
-function getDeepLinkFromArgs(argv: string[]): string | undefined {
-  return argv.find(
+function getDeepLinksFromArgs(argv: string[]): string[] {
+  return argv.filter(
     (arg) =>
       arg.startsWith('clash://') || arg.startsWith('mihomo://') || arg.startsWith('koala-clash://')
   )
 }
 
-app.on('second-instance', async (_event, commandline) => {
-  showMainWindow()
-  const url = getDeepLinkFromArgs(commandline)
-  if (url) {
-    if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.webContents.isLoading()) {
-      await handleDeepLink(url)
-    } else {
-      pendingDeepLink = url
-    }
-  }
+app.on('second-instance', (_event, commandline) => {
+  const urls = getDeepLinksFromArgs(commandline)
+  if (urls.length) urls.forEach((url) => deepLinks.enqueue(url))
+  else deepLinks.requestWindow()
 })
 
-app.on('open-url', async (_event, url) => {
-  if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.webContents.isLoading()) {
-    await showMainWindow()
-    await handleDeepLink(url)
-  } else {
-    pendingDeepLink = url
-  }
+app.on('open-url', (event, url) => {
+  event.preventDefault()
+  deepLinks.enqueue(url)
 })
 
 let isQuitting = false,
@@ -303,6 +301,7 @@ app.whenReady().then(async () => {
   } catch (e) {
     dialog.showErrorBox(t('dialog.appInitFailed'), `${e}`)
     app.quit()
+    return
   }
 
   // Default open or close DevTools by F12 in development
@@ -319,12 +318,7 @@ app.whenReady().then(async () => {
   registerIpcMainHandlers()
 
   // Check process.argv for deep link URL (cold start on Windows/Linux)
-  if (!pendingDeepLink) {
-    const deepLinkArg = getDeepLinkFromArgs(process.argv)
-    if (deepLinkArg) {
-      pendingDeepLink = deepLinkArg
-    }
-  }
+  getDeepLinksFromArgs(process.argv).forEach((url) => deepLinks.enqueue(url))
 
   if (process.platform === 'win32') {
     try {
@@ -335,6 +329,7 @@ app.whenReady().then(async () => {
   }
 
   const createWindowPromise = createWindow(appConfig)
+  deepLinks.enable()
 
   let coreStarted = false
 
@@ -381,6 +376,7 @@ app.whenReady().then(async () => {
 })
 
 async function handleDeepLink(url: string): Promise<void> {
+  if (await handleAuthCallback(url)) return
   if (
     !url.startsWith('clash://') &&
     !url.startsWith('mihomo://') &&
@@ -586,14 +582,8 @@ export async function createWindow(appConfig?: AppConfig): Promise<void> {
       }
     })
 
-    mainWindow.webContents.once('did-finish-load', () => {
-      if (pendingDeepLink) {
-        const url = pendingDeepLink
-        pendingDeepLink = null
-        setTimeout(() => {
-          handleDeepLink(url)
-        }, 500)
-      }
+    mainWindow.webContents.on('did-finish-load', () => {
+      deepLinks.rendererReady()
     })
 
     mainWindow.on('close', async (event) => {
@@ -670,7 +660,7 @@ export async function showMainWindow(): Promise<void> {
       app.dock.hide()
     }
   }
-  if (mainWindow) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
     windowShown = true
     mainWindow.show()
     mainWindow.focusOnWebView()

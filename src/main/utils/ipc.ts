@@ -123,6 +123,15 @@ import { getAppName } from './appName'
 import { getUserAgent } from './userAgent'
 import { setLanguage } from './i18n'
 import { updateApplicationMenu } from '../resolve/menu'
+import {
+  authGetState,
+  authLogin,
+  authReopenLogin,
+  authLogout,
+  authCancelLogin,
+  authListServices,
+  authImportService
+} from '../auth'
 
 function ipcErrorWrapper<T>( // eslint-disable-next-line @typescript-eslint/no-explicit-any
   fn: (...args: any[]) => Promise<T> // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -147,6 +156,35 @@ function ipcErrorWrapper<T>( // eslint-disable-next-line @typescript-eslint/no-e
   }
 }
 export function registerIpcMainHandlers(): void {
+  const isAccountRenderer = (event: Electron.IpcMainInvokeEvent): boolean =>
+    Boolean(
+      mainWindow &&
+      event.sender === mainWindow.webContents &&
+      event.senderFrame === mainWindow.webContents.mainFrame
+    )
+  // Only the main window's top-level renderer may initiate account operations.
+  for (const [channel, handler] of Object.entries({
+    authGetState,
+    authLogin,
+    authReopenLogin,
+    authLogout,
+    authCancelLogin
+  })) {
+    ipcMain.handle(channel, (event) => {
+      if (!isAccountRenderer(event)) {
+        return { invokeError: 'Unauthorized account request' }
+      }
+      return ipcErrorWrapper(handler)()
+    })
+  }
+  ipcMain.handle('authListServices', (event) => {
+    if (!isAccountRenderer(event)) return { invokeError: 'Unauthorized account request' }
+    return authListServices()
+  })
+  ipcMain.handle('authImportService', (event, id) => {
+    if (!isAccountRenderer(event)) return { invokeError: 'Unauthorized account request' }
+    return authImportService(id)
+  })
   ipcMain.handle('mihomoVersion', ipcErrorWrapper(mihomoVersion))
   ipcMain.handle('mihomoConfig', ipcErrorWrapper(mihomoConfig))
   ipcMain.handle('getCoreDiagnostics', (_event, after?: number) =>
