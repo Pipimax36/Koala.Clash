@@ -26,7 +26,8 @@ import './account-control.css'
 
 export default function AccountControl() {
   const { t } = useTranslation()
-  const { state, loading, busy, login, reopenLogin, logout, cancelLogin } = useKoalaAuth()
+  const { state, loading, busy, restoring, openAccount, login, reopenLogin, logout, cancelLogin } =
+    useKoalaAuth()
   const [open, setOpen] = useState(false)
   const previousStatus = useRef(state.status)
   const previousError = useRef(state.error)
@@ -56,14 +57,22 @@ export default function AccountControl() {
     previousError.current = state.error
   }, [state.error, open, t])
 
-  const openAccount = (): void => {
+  const showAccount = (): void => {
     if (loading || busy) return
     setOpen(true)
-    if (state.status === 'signed-out') void login()
+    void openAccount()
   }
 
-  const title = state.error ? t('auth.loginFailed') : t('auth.waitingTitle')
-  const description = state.error ? t(`auth.errors.${state.error}`) : t('auth.waitingDescription')
+  const title = restoring
+    ? t('auth.accountTitle')
+    : state.error
+      ? t('auth.loginFailed')
+      : t('auth.waitingTitle')
+  const description = restoring
+    ? t('auth.loading')
+    : state.error
+      ? t(`auth.errors.${state.error}`)
+      : t('auth.waitingDescription')
 
   return (
     <div className="ui-sidebar-account">
@@ -77,7 +86,7 @@ export default function AccountControl() {
         aria-expanded={open}
         data-active={open}
         disabled={loading || busy}
-        onClick={openAccount}
+        onClick={showAccount}
       >
         {loading || signingIn ? (
           <LoaderCircle className="animate-spin" aria-hidden />
@@ -142,7 +151,7 @@ export default function AccountControl() {
                   data-state={state.error ? 'error' : 'waiting'}
                   aria-hidden
                 >
-                  {state.error ? <AlertCircle /> : <ExternalLink />}
+                  {restoring ? <UserRound /> : state.error ? <AlertCircle /> : <ExternalLink />}
                 </div>
                 <span className="ui-auth-brand">COOLGO</span>
                 <DialogTitle className="ui-auth-title">{title}</DialogTitle>
@@ -167,7 +176,9 @@ export default function AccountControl() {
             ) : waiting ? (
               <div className="ui-auth-progress" role="status">
                 <LoaderCircle className="animate-spin" aria-hidden />
-                <span>{t(busy ? 'auth.openingBrowser' : 'auth.waiting')}</span>
+                <span>
+                  {t(restoring ? 'auth.loading' : busy ? 'auth.openingBrowser' : 'auth.waiting')}
+                </span>
               </div>
             ) : null}
 
@@ -205,7 +216,13 @@ export default function AccountControl() {
                   )}
                   <Button
                     disabled={busy}
-                    onClick={() => void (signingIn ? reopenLogin() : login())}
+                    onClick={() =>
+                      void (signingIn
+                        ? reopenLogin()
+                        : state.error === 'storage-error'
+                          ? openAccount()
+                          : login())
+                    }
                   >
                     {busy ? (
                       <LoaderCircle className="animate-spin" aria-hidden />
@@ -217,7 +234,7 @@ export default function AccountControl() {
                 </>
               )}
             </DialogFooter>
-            {!signedIn && (
+            {!signedIn && !restoring && (
               <p className="ui-auth-footnote">
                 {t(signingIn ? 'auth.waitingHint' : 'auth.providerHint')}
               </p>

@@ -39,13 +39,13 @@ export default function AppSidebar() {
   const [showRuntimeConfig, setShowRuntimeConfig] = useState(false)
   return (
     <aside className="ui-sidebar" data-guide="app-sidebar" data-collapsed={collapsed}>
-      <div className="ui-sidebar-brand app-drag" aria-label="Koala">
+      <div className="ui-sidebar-brand app-drag" aria-label="Koala.Clash">
         <div
           className="ui-brand-mark"
           aria-hidden="true"
           style={{ maskImage: `url("${brandMark}")` }}
         />
-        <span>Koala</span>
+        <span>Koala.Clash</span>
       </div>
       <nav className="ui-sidebar-nav" aria-label={t('redesign.workspace')}>
         {workspacePages.map((item) => {

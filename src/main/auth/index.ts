@@ -76,8 +76,9 @@ function session(): ReturnType<typeof createAuthSession> {
   return auth
 }
 
-export const authGetState = async (): Promise<KoalaAuthState> => {
-  const state = await session().getState()
+export const authGetState = (): Promise<KoalaAuthState> => session().getState()
+export const authRestoreSession = async (): Promise<KoalaAuthState> => {
+  const state = await session().restoreSession()
   if (state.status === 'signed-in') void services.bind()
   return state
 }
@@ -87,7 +88,7 @@ export const authLogout = (): Promise<KoalaAuthState> => session().logout()
 export const authCancelLogin = (): Promise<KoalaAuthState> => session().cancelLogin()
 export const handleAuthCallback = async (url: string): Promise<boolean> => {
   const handled = await session().acceptCallback(url)
-  if (handled) void services.bind()
+  if (handled && (await session().getState()).status === 'signed-in') void services.bind()
   return handled
 }
 

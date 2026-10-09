@@ -17,6 +17,10 @@ export async function authGetState(): Promise<KoalaAuthState> {
   return ipcErrorWrapper(await window.electron.ipcRenderer.invoke('authGetState'))
 }
 
+export async function authRestoreSession(): Promise<KoalaAuthState> {
+  return ipcErrorWrapper(await window.electron.ipcRenderer.invoke('authRestoreSession'))
+}
+
 export async function authLogin(): Promise<KoalaAuthState> {
   return ipcErrorWrapper(await window.electron.ipcRenderer.invoke('authLogin'))
 }
@@ -152,6 +156,10 @@ export async function disableAutoRun(): Promise<void> {
 
 export async function getAppConfig(force = false): Promise<AppConfig> {
   return ipcErrorWrapper(await window.electron.ipcRenderer.invoke('getAppConfig', force))
+}
+
+export async function getSystemCorePath(): Promise<string> {
+  return ipcErrorWrapper(await window.electron.ipcRenderer.invoke('getSystemCorePath'))
 }
 
 export async function patchAppConfig(patch: Partial<AppConfig>): Promise<void> {

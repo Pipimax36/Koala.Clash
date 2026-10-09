@@ -29,6 +29,8 @@ import {
   restartCore,
   revokeCorePermission,
   findSystemMihomo,
+  getSystemCorePath,
+  patchAppConfig as saveAppConfig,
   deleteElevateTask,
   checkElevateTask,
   relaunchApp,
@@ -106,8 +108,13 @@ const Mihomo: React.FC = () => {
   const location = useLocation()
   const control = useProxyControl()
   const [restarting, setRestarting] = useState(false)
-  const { appConfig, patchAppConfig } = useAppConfig()
+  const { appConfig, patchAppConfig, mutateAppConfig } = useAppConfig()
   const { core = 'mihomo', maxLogDays = 7, corePermissionMode = 'elevated' } = appConfig || {}
+  const { data: systemCorePath, mutate: refreshSystemCorePath } = useSWR(
+    core === 'system' ? 'systemCorePath' : null,
+    getSystemCorePath,
+    { revalidateOnFocus: false, shouldRetryOnError: false }
+  )
   const { controledMihomoConfig, patchControledMihomoConfig } = useControledMihomoConfig()
   const {
     ipv6,
@@ -185,7 +192,9 @@ const Mihomo: React.FC = () => {
 
   const handleConfigChangeWithRestart = async (key: string, value: unknown): Promise<void> => {
     try {
-      await patchAppConfig({ [key]: value })
+      await saveAppConfig({ [key]: value })
+      mutateAppConfig()
+      if (key === 'systemCorePath') await refreshSystemCorePath(String(value), false)
       await restartCore()
       PubSub.publish('mihomo-core-changed')
     } catch (e) {
@@ -211,21 +220,27 @@ const Mihomo: React.FC = () => {
   }
 
   const handleCoreChange = async (newCore: 'mihomo' | 'mihomo-alpha' | 'system'): Promise<void> => {
-    if (newCore === 'system') {
-      const paths = await getSystemCorePaths()
+    try {
+      if (newCore === 'system') {
+        const paths = await getSystemCorePaths()
 
-      if (paths.length === 0) {
-        new Notification(t('pages.mihomo.systemCoreNotFound'), {
-          body: t('pages.mihomo.systemCoreNotFoundBody')
-        })
-        return
-      }
+        if (paths.length === 0) {
+          new Notification(t('pages.mihomo.systemCoreNotFound'), {
+            body: t('pages.mihomo.systemCoreNotFoundBody')
+          })
+          return
+        }
 
-      if (!appConfig?.systemCorePath || !paths.includes(appConfig.systemCorePath)) {
-        await patchAppConfig({ systemCorePath: paths[0] })
+        const savedPath = await getSystemCorePath()
+        if (!savedPath || !paths.includes(savedPath)) {
+          await saveAppConfig({ systemCorePath: paths[0] })
+          mutateAppConfig()
+        }
       }
+      await handleConfigChangeWithRestart('core', newCore)
+    } catch (error) {
+      toast.error(String(error))
     }
-    handleConfigChangeWithRestart('core', newCore)
   }
 
   const handlePermissionModeChange = async (key: string): Promise<void> => {
@@ -598,7 +613,7 @@ const Mihomo: React.FC = () => {
               {core === 'system' && (
                 <SettingItem title={t('pages.mihomo.systemCorePath')}>
                   <Select
-                    value={appConfig?.systemCorePath}
+                    value={systemCorePath}
                     disabled={loadingPaths}
                     onValueChange={(value) => {
                       if (value) handleConfigChangeWithRestart('systemCorePath', value)

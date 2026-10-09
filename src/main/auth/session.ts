@@ -67,7 +67,7 @@ export function createAuthSession(deps: AuthDependencies) {
   let pending: AuthPending | undefined
   let credentials: AuthCredentials | undefined
   let generation = 0
-  let loadPromise: Promise<void> | undefined
+  let loadPromise: Promise<boolean> | undefined
   let loading = false
   let preparing = false
   let exchangingState: string | undefined
@@ -127,14 +127,14 @@ export function createAuthSession(deps: AuthDependencies) {
       publish({ status: 'signed-out', persistence: 'none', ...(error && { error }) })
   }
 
-  async function adopt(next: AuthCredentials, epoch: number): Promise<void> {
+  async function adopt(next: AuthCredentials, epoch: number, persist = true): Promise<void> {
     if (epoch !== generation) return
     credentials = checkedCredentials(next, now())
     pending = undefined
-    let encrypted = false
+    let encrypted = !persist
     let error: KoalaAuthError | undefined
     try {
-      encrypted = await save()
+      if (persist) encrypted = await save()
     } catch {
       error = 'storage-error'
     }
@@ -152,7 +152,7 @@ export function createAuthSession(deps: AuthDependencies) {
     schedule()
   }
 
-  async function load(): Promise<void> {
+  async function load(): Promise<boolean> {
     if (!loadPromise) {
       const epoch = generation
       loading = true
@@ -161,10 +161,13 @@ export function createAuthSession(deps: AuthDependencies) {
         try {
           vault = await deps.store.load()
         } catch {
-          await clear('storage-error', epoch)
-          return
+          // A declined keychain request is retryable. Do not destroy the vault
+          // or replace it with a new login until it can be read successfully.
+          if (epoch === generation)
+            publish({ status: 'signed-out', persistence: 'none', error: 'storage-error' })
+          return false
         }
-        if (epoch !== generation) return
+        if (epoch !== generation) return false
         if (vault?.pending) {
           pending = vault.pending
           if (pending.expiresAt <= now()) await clear('login-expired', epoch)
@@ -175,31 +178,45 @@ export function createAuthSession(deps: AuthDependencies) {
         } else if (vault?.session) {
           if (vault.session.expiresAt <= now()) {
             await clear('session-expired', epoch)
-            return
+            return true
           }
           try {
             const restored = await deps.provider.restore(vault.session)
-            await adopt(restored, epoch)
+            // The existing vault is already encrypted; restoration need not
+            // request another keychain write just to refresh display identity.
+            await adopt(restored, epoch, false)
           } catch (error) {
             await clear(reason(error), epoch)
           }
+        } else if (view.error) {
+          publish({ status: 'signed-out', persistence: 'none' })
         }
-      })().finally(() => {
-        if (epoch === generation) loading = false
+        return true
+      })().then((loaded) => {
+        if (epoch === generation) {
+          loading = false
+          if (!loaded) loadPromise = undefined
+        }
+        return loaded
       })
     }
-    await loadPromise
+    return loadPromise
   }
 
   async function getState(): Promise<KoalaAuthState> {
-    await load()
     if (pending && pending.expiresAt <= now()) await clear('login-expired', ++generation)
     else if (credentials && credentials.expiresAt <= now())
       await clear('session-expired', ++generation)
     return snapshot()
   }
 
+  async function restoreSession(): Promise<KoalaAuthState> {
+    await load()
+    return getState()
+  }
+
   async function serviceSession(): Promise<ServiceSession> {
+    if (!(await load())) throw new ServiceRequestError('not-signed-in')
     await getState()
     const current = credentials
     const epoch = generation
@@ -264,14 +281,14 @@ export function createAuthSession(deps: AuthDependencies) {
 
   async function login(): Promise<KoalaAuthState> {
     const epoch = generation
-    await load()
+    if (!(await load())) return snapshot()
     if (epoch !== generation) return snapshot()
     return startLogin()
   }
 
   async function reopenLogin(): Promise<KoalaAuthState> {
     const initialEpoch = generation
-    await load()
+    if (!(await load())) return snapshot()
     if (initialEpoch !== generation) return snapshot()
     const attempt = pending
     if (exchangingState && (!attempt || exchangingState === attempt.state)) return snapshot()
@@ -303,9 +320,9 @@ export function createAuthSession(deps: AuthDependencies) {
 
   async function logout(): Promise<KoalaAuthState> {
     const epoch = ++generation
-    // Invalidate an in-flight startup restore before waiting on any I/O. Future
+    // Invalidate an in-flight restore before waiting on any I/O. Future
     // operations need not wait for that obsolete provider response either.
-    loadPromise = Promise.resolve()
+    loadPromise = Promise.resolve(true)
     loading = false
     preparing = false
     pending = undefined
@@ -336,7 +353,7 @@ export function createAuthSession(deps: AuthDependencies) {
       return false
     }
     if (url.protocol !== 'koala-clash:' || url.hostname !== 'auth') return false
-    await load()
+    if (!(await load())) return true
     const attempt = pending
     if (!attempt || exchangingState === attempt.state) return true
     if (!equal(url.searchParams.get('state') ?? '', attempt.state)) return true
@@ -385,6 +402,7 @@ export function createAuthSession(deps: AuthDependencies) {
 
   return {
     getState,
+    restoreSession,
     login,
     reopenLogin,
     logout,

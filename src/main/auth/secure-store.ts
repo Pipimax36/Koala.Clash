@@ -132,13 +132,12 @@ export function createSecureAuthStore(
     },
     async save(vault: AuthVault): Promise<boolean> {
       assertVault(vault)
-      if (!crypto.isAvailable()) {
-        await rm(filePath, { force: true })
-        return false
-      }
       if (!vault.pending && !vault.session) {
         await rm(filePath, { force: true })
         return true
+      }
+      if (!crypto.isAvailable()) {
+        return false
       }
       const plaintext = JSON.stringify(vault)
       if (Buffer.byteLength(plaintext, 'utf8') > MAX_BYTES) {
@@ -155,7 +154,6 @@ export function createSecureAuthStore(
           throw new Error('Invalid authentication vault size')
         }
       } catch {
-        await rm(filePath, { force: true })
         return false
       }
       const directory = path.dirname(filePath)

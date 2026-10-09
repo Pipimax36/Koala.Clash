@@ -1,7 +1,6 @@
 import { memo, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
-import dayjs from 'dayjs'
 import { Power, ChevronRight, ExternalLink, ShieldCheck, Layers, Activity, X } from 'lucide-react'
 import BasePage from '@renderer/components/base/base-page'
 import { Button } from '@renderer/components/ui/button'
@@ -56,10 +55,6 @@ const Home: React.FC = () => {
   const [editing, setEditing] = useState<ProfileItem | null>(null)
   const groupName = useOverviewStore((s) => s.groupName)
   const setGroupName = useOverviewStore((s) => s.selectGroup)
-  const [updatedAt, setUpdatedAt] = useState(Date.now())
-  useEffect(() => {
-    setUpdatedAt(Date.now())
-  }, [traffic, control.runtime])
   const [now, setNow] = useState(Date.now())
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 60_000)
@@ -120,11 +115,9 @@ const Home: React.FC = () => {
       title={t('redesign.overviewTitle')}
       subtitle={t('redesign.homeSubtitle')}
       header={
-        <span className="ui-description">
-          {t('redesign.updatedAt', {
-            time: runtimeAvailable ? dayjs(updatedAt).format('HH:mm') : '—'
-          })}
-        </span>
+        <div className="ui-home-mode-tabs">
+          <ProxyModeTabs confirmWhenConnected={false} disabled={!runtimeAvailable} />
+        </div>
       }
     >
       {!profileConfig ? (
@@ -177,24 +170,9 @@ const Home: React.FC = () => {
               <div className="min-w-0 flex-1">
                 <h2 role="status">{status}</h2>
                 <div className="ui-description tabular-nums">
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <button
-                        type="button"
-                        className="ui-home-mode-trigger"
-                        aria-label={t('redesign.switchMode')}
-                      >
-                        {t(
-                          control.mode === 'tun'
-                            ? 'redesign.tunModeShort'
-                            : 'redesign.systemProxyShort'
-                        )}
-                      </button>
-                    </PopoverTrigger>
-                    <PopoverContent className="ui-mode-popover" align="start">
-                      <ProxyModeTabs />
-                    </PopoverContent>
-                  </Popover>
+                  {t(
+                    control.mode === 'tun' ? 'redesign.tunModeShort' : 'redesign.systemProxyShort'
+                  )}
                   {' · '}
                   {runtimeAvailable && proxyEnabled ? (
                     <>

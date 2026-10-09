@@ -94,7 +94,7 @@ function fixture(initial: AuthVault | null = null) {
 }
 const nextTurn = (): Promise<void> => new Promise((resolve) => setImmediate(resolve))
 
-test('logout and cancellation immediately invalidate a startup restore and ignore its late success', async (t) => {
+test('logout and cancellation immediately invalidate an explicit restore and ignore its late success', async (t) => {
   for (const action of ['logout', 'cancelLogin'] as const) {
     const f = fixture({ version: 2, session: issued })
     t.after(f.app.dispose)
@@ -104,7 +104,7 @@ test('logout and cancellation immediately invalidate a startup restore and ignor
       started.resolve()
       return result.promise
     })
-    const restoring = f.app.getState()
+    const restoring = f.app.restoreSession()
     await started.promise
     assert.equal((await f.app[action]()).status, 'signed-out')
     result.resolve(issued)
@@ -214,11 +214,30 @@ test('old restore failures cannot replace a newly started login after logout', a
     started.resolve()
     return result.promise
   })
-  const restoring = f.app.getState()
+  const restoring = f.app.restoreSession()
   await started.promise
   await f.app.logout()
   await f.app.login()
   result.reject(new AuthRequestError('identity-invalid'))
+  await restoring
+  assert.deepEqual(await f.app.getState(), { status: 'signing-in', persistence: 'none' })
+  assert.ok(f.vault()?.pending)
+})
+
+test('a late keychain refusal cannot overwrite a new login after logout', async (t) => {
+  const f = fixture({ version: 2, session: issued })
+  t.after(f.app.dispose)
+  const started = deferred<void>()
+  const result = deferred<AuthVault | null>()
+  f.load(() => {
+    started.resolve()
+    return result.promise
+  })
+  const restoring = f.app.restoreSession()
+  await started.promise
+  await f.app.logout()
+  await f.app.login()
+  result.reject(new Error('Simulated keychain refusal'))
   await restoring
   assert.deepEqual(await f.app.getState(), { status: 'signing-in', persistence: 'none' })
   assert.ok(f.vault()?.pending)

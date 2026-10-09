@@ -35,7 +35,6 @@ import {
 import { app } from 'electron'
 import { startSSIDCheck } from '../sys/ssid'
 import { startNetworkDetection } from '../core/manager'
-import { initKeyManager } from '../service/manager'
 import { migrateFromOldApp } from './migration'
 
 async function initDirs(): Promise<void> {
@@ -218,7 +217,6 @@ export async function init(): Promise<void> {
 
   const [appConfig] = await Promise.all([
     getAppConfig(),
-    initKeyManager(),
     cleanup().catch(() => {
       // ignore
     })

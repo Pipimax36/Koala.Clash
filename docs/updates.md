@@ -2,7 +2,7 @@
 
 ## 应用更新
 
-- 更新仓库统一配置在 `src/shared/release-source.json`：`Pipimax36/Koalamo`。
+- 更新仓库统一配置在 `src/shared/release-source.json`：`Pipimax36/Koala.Clash`。
 - 默认启动时检查，此后每 10 分钟检查；设置中可关闭自动检查或手动检查。
 - 读取 GitHub 最新正式 Release 的版本和说明。仓库尚无 Release 时视为没有可用更新；网络错误和限流会保留错误状态。
 - 按语义版本比较，仅提示更高版本；保留完整发布标签，兼容带 `v` 和不带 `v` 的已有 Release。
@@ -17,7 +17,7 @@
 3. 留空则只生成预览版，发布到 `pre-release`，不会推送给正式版更新检查。
 4. 所有平台构建成功后，工作流上传安装包和 `latest.yml`；更新客户端以 GitHub Release 的真实标签和附件为准。
 
-当前修复版本为 `v1.4.3`，源码 `package.json` 与更新日志已同步为 `1.4.3`。在合并后的 `main` 分支运行 **Build**，版本输入 `v1.4.3`。工作流只在构建目录设置发布版本，不自动提交回分支；后续发布也应同步更新源码版本与更新日志。
+当前版本为 `v1.4.5`，源码 `package.json` 与更新日志已同步为 `1.4.5`。在包含本次改动的 `main` 分支运行 **Build**，版本输入 `v1.4.5`。工作流只在构建目录设置发布版本，不自动提交回分支；后续发布也应同步更新源码版本与更新日志。
 
 macOS 签名仍使用仓库原有 Apple 证书配置；未配置证书时生成未签名安装包，当前 `notarize: false`，安装包未公证。Telegram 通知与 AUR 发布默认关闭，需配置相应凭据，并分别将仓库变量 `TELEGRAM_NOTIFICATIONS_ENABLED`、`AUR_PUBLISH_ENABLED` 设为 `true`。AUR 还需要该包的维护权限。
 

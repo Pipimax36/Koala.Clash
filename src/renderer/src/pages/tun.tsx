@@ -31,7 +31,7 @@ const Tun: React.FC = () => {
   const [loading, setLoading] = useState(false)
   const {
     device = platform === 'darwin' ? undefined : 'mihomo',
-    stack = 'mixed',
+    stack = platform === 'darwin' ? 'gvisor' : 'mixed',
     'auto-route': autoRoute = true,
     'auto-redirect': autoRedirect = false,
     'auto-detect-interface': autoDetectInterface = true,

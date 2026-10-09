@@ -3,40 +3,48 @@ import { execWithElevation } from '../utils/elevation'
 import { t } from '../utils/i18n'
 import { KeyManager } from './key'
 import { initServiceAPI, getServiceAxios, ping, test } from './api'
-import { getAppConfig, patchAppConfig } from '../config'
+import { getAppConfigSecret, patchAppConfig } from '../config/app'
+import { createPublicKey } from 'node:crypto'
 import { execFile } from 'child_process'
 import { promisify } from 'util'
 
 let keyManager: KeyManager | null = null
+let keyInitialization: Promise<KeyManager> | null = null
+let serviceInitialization: Promise<KeyManager> | null = null
 
 export async function initKeyManager(): Promise<KeyManager> {
-  if (keyManager) {
-    return keyManager
-  }
+  if (serviceInitialization) return serviceInitialization
+  if (keyInitialization) return keyInitialization
+  if (keyManager) return keyManager
 
-  keyManager = new KeyManager()
-
-  const config = await getAppConfig()
-  if (config.serviceAuthKey) {
-    try {
-      const [publicKey, privateKey] = config.serviceAuthKey.split(':')
-      if (publicKey && privateKey) {
-        keyManager.setKeyPair(publicKey, privateKey)
-        initServiceAPI(keyManager)
-        return keyManager
+  const pending = (async (): Promise<KeyManager> => {
+    const storedKey = await getAppConfigSecret('serviceAuthKey')
+    const candidate = new KeyManager()
+    if (storedKey) {
+      const parts = storedKey.split(':')
+      const [publicKey, privateKey] = parts
+      if (parts.length !== 2 || !publicKey || !privateKey) {
+        throw new Error('Invalid stored helper service key')
       }
-    } catch {
-      // ignore
+      const derived = createPublicKey(privateKey).export({ type: 'spki', format: 'der' })
+      if (derived.toString('base64') !== publicKey) {
+        throw new Error('Invalid stored helper service key')
+      }
+      candidate.setKeyPair(publicKey, privateKey)
+    } else {
+      const pair = candidate.generateKeyPair()
+      await patchAppConfig({ serviceAuthKey: `${pair.publicKey}:${pair.privateKey}` })
     }
+    initServiceAPI(candidate)
+    keyManager = candidate
+    return candidate
+  })()
+  keyInitialization = pending
+  try {
+    return await pending
+  } finally {
+    if (keyInitialization === pending) keyInitialization = null
   }
-
-  const keyPair = keyManager.generateKeyPair()
-  await patchAppConfig({
-    serviceAuthKey: `${keyPair.publicKey}:${keyPair.privateKey}`
-  })
-
-  initServiceAPI(keyManager)
-  return keyManager
 }
 
 export function getKeyManager(): KeyManager {
@@ -46,8 +54,8 @@ export function getKeyManager(): KeyManager {
   return keyManager
 }
 
-export function getPublicKey(): string {
-  return getKeyManager().getPublicKey()
+export async function getPublicKey(): Promise<string> {
+  return (await initKeyManager()).getPublicKey()
 }
 
 class UserCancelledError extends Error {
@@ -71,7 +79,7 @@ function isUserCancelledError(error: unknown): boolean {
   )
 }
 
-export function exportPublicKey(): string {
+export function exportPublicKey(): Promise<string> {
   return getPublicKey()
 }
 
@@ -80,33 +88,30 @@ export function getAxios() {
 }
 
 export async function initService(): Promise<void> {
-  keyManager = null
-
-  const newKeyManager = new KeyManager()
-  const keyPair = newKeyManager.generateKeyPair()
-
-  initServiceAPI(newKeyManager)
-
-  const publicKey = keyPair.publicKey
-
-  const execPath = servicePath()
-
-  try {
-    await execWithElevation(execPath, ['service', 'init', '--public-key', publicKey])
-
-    await patchAppConfig({
-      serviceAuthKey: `${keyPair.publicKey}:${keyPair.privateKey}`
-    })
-
-    keyManager = newKeyManager
-  } catch (error) {
-    if (isUserCancelledError(error)) {
-      throw new UserCancelledError()
-    }
-    throw new Error(`${t('error.serviceInitFailed')}：${error instanceof Error ? error.message : String(error)}`)
+  if (serviceInitialization) {
+    await serviceInitialization
+    return
   }
-
-  await new Promise((resolve) => setTimeout(resolve, 500))
+  // Prepare and persist the key before changing the helper's authorization.
+  // Reuse a valid existing key so cancelled initialization cannot desynchronize it.
+  const preparation = initKeyManager()
+  const pending = (async (): Promise<KeyManager> => {
+    try {
+      const candidate = await preparation
+      await execWithElevation(servicePath(), ['service', 'init', '--public-key', candidate.getPublicKey()])
+      await new Promise((resolve) => setTimeout(resolve, 500))
+      return candidate
+    } catch (error) {
+      if (isUserCancelledError(error)) throw new UserCancelledError()
+      throw new Error(`${t('error.serviceInitFailed')}：${error instanceof Error ? error.message : String(error)}`)
+    }
+  })()
+  serviceInitialization = pending
+  try {
+    await pending
+  } finally {
+    if (serviceInitialization === pending) serviceInitialization = null
+  }
 }
 
 export async function installService(): Promise<void> {

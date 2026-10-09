@@ -1,7 +1,7 @@
 import { toast } from 'sonner'
 import { useTheme } from 'next-themes'
 import React, { useEffect, useRef, useState } from 'react'
-import { NavigateFunction, useNavigate, useRoutes } from 'react-router-dom'
+import { useRoutes } from 'react-router-dom'
 import './i18n'
 import { useTranslation } from 'react-i18next'
 import routes from '@renderer/routes'
@@ -28,8 +28,6 @@ import { attachLogsStore } from '@renderer/store/logs-store'
 import { attachUpdaterStore } from '@renderer/store/updater-store'
 import { attachCoreLifecycleStore } from '@renderer/store/core-lifecycle-store'
 
-let navigate: NavigateFunction
-
 const App: React.FC = () => {
   const { t } = useTranslation()
   const { appConfig } = useAppConfig()
@@ -40,7 +38,6 @@ const App: React.FC = () => {
     useWindowFrame = false
   } = appConfig || {}
   const { setTheme, systemTheme } = useTheme()
-  navigate = useNavigate()
   const page = useRoutes(routes)
   const { data: latest } = useSWR(
     autoCheckUpdate ? ['checkUpdate'] : undefined,
@@ -62,19 +59,6 @@ const App: React.FC = () => {
       detachLogs()
       detachUpdater()
       detachCoreLifecycle()
-    }
-  }, [])
-
-  useEffect(() => {
-    const tourShown = window.localStorage.getItem('tourShown')
-    if (!tourShown) {
-      import('@renderer/utils/driver').then(({ startTour }) => {
-        startTour(navigate, {
-          onMainGuideCompleted: (): void => {
-            window.localStorage.setItem('tourShown', 'true')
-          }
-        })
-      })
     }
   }, [])
 

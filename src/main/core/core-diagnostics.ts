@@ -1,4 +1,7 @@
 export function parseCoreStartupIssue(line: string): CoreStartupIssue | undefined {
+  if (/\bbatch read packet:\s*bad file descriptor\b/i.test(line)) {
+    return { reason: 'tun-read-failed' }
+  }
   if (line.includes('Start TUN listening error:')) {
     if (/add route:.*(?:file exists|already exists)/i.test(line)) {
       return { reason: 'tun-route-conflict' }

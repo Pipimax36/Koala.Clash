@@ -90,6 +90,8 @@ export function useProxyControl() {
               return t('redesign.tunRouteConflict')
             case 'tun-permission-denied':
               return t('redesign.tunPermissionDenied')
+            case 'tun-read-failed':
+              return t('redesign.tunReadFailed')
             case 'port-in-use':
               return t(issue.port ? 'redesign.proxyPortInUse' : 'redesign.proxyPortConflict', {
                 port: issue.port

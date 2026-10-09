@@ -1,7 +1,7 @@
 import { controledMihomoConfigPath } from '../utils/dirs'
 import { readFile, writeFile } from 'fs/promises'
 import { parseYaml, stringifyYaml } from '../utils/yaml'
-import { generateProfile } from '../core/factory'
+import { generateProfile, getRuntimeConfig } from '../core/factory'
 import { getAppConfig } from './app'
 import { defaultControledMihomoConfig } from '../utils/template'
 import { deepMerge } from '../utils/merge'
@@ -80,6 +80,14 @@ export async function patchControledMihomoConfig(patch: Partial<MihomoConfig>): 
   try {
     const { patchMihomoConfig, applyLogLevel } = await import('../core/mihomoApi')
     const { 'log-level': patchedLogLevel, ...rest } = patch as Partial<ControllerConfigs>
+    if (rest.tun && !controlTun) {
+      // Apply the same effective TUN settings as the subsequent profile reload.
+      // An enable-only patch would first start the previous (possibly broken) stack.
+      const { tun } = await getRuntimeConfig()
+      rest.tun = { ...tun, enable: tun?.enable ?? false } as ControllerTunDetail
+    }
+    // Manual PATCH values must retain explicit defaults and empty lists: the
+    // generated full YAML omits them, whereas PATCH would preserve stale values.
     if (Object.keys(rest).length) await patchMihomoConfig(rest)
     if (patchedLogLevel !== undefined) await applyLogLevel(logLevel)
   } catch {

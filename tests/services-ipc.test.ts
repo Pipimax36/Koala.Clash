@@ -38,6 +38,10 @@ test('service IPC requires the current main window top frame and only forwards t
       if (name === '../auth')
         return {
           authGetState: noOp,
+          authRestoreSession: async (...args: unknown[]) => {
+            calls.push(args)
+            return { status: 'signed-out', persistence: 'none' }
+          },
           authLogin: noOp,
           authReopenLogin: noOp,
           authLogout: noOp,
@@ -55,7 +59,7 @@ test('service IPC requires the current main window top frame and only forwards t
     }
   })
   module.exports.registerIpcMainHandlers()
-  for (const channel of ['authListServices', 'authImportService']) {
+  for (const channel of ['authRestoreSession', 'authListServices', 'authImportService']) {
     const handler = handlers.get(channel)!
     for (const event of [
       { sender: {}, senderFrame: frame },
@@ -69,5 +73,6 @@ test('service IPC requires the current main window top frame and only forwards t
   const event = { sender: webContents, senderFrame: frame }
   await handlers.get('authListServices')!(event, 'do-not-forward-token')
   await handlers.get('authImportService')!(event, 72, 'do-not-forward-url')
-  assert.deepEqual(calls, [[], [72]])
+  await handlers.get('authRestoreSession')!(event, 'do-not-forward-token')
+  assert.deepEqual(calls, [[], [72], []])
 })

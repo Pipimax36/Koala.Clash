@@ -84,40 +84,49 @@ test('credentials survive reopening with only encrypted bytes in a private file'
   }
 })
 
-test('unavailable encryption removes old credentials instead of writing plaintext', async () => {
+test('unavailable encryption preserves existing encrypted credentials without writing a replacement', async () => {
   const f = await fixture()
   try {
     await f.store.save(vault)
+    const original = await readFile(f.filePath)
     f.crypto.setAvailable(false)
     await assert.rejects(f.store.load())
-    assert.equal(await f.store.save(vault), false)
-    assert.equal(await f.store.load(), null)
-    await assert.rejects(readFile(f.filePath), { code: 'ENOENT' })
+    assert.equal(await f.store.save(pendingVault), false)
+    assert.deepEqual(await readFile(f.filePath), original)
+    f.crypto.setAvailable(true)
+    assert.deepEqual(await f.store.load(), vault)
   } finally {
     await f.cleanup()
   }
 })
 
-test('an encryption failure removes old credentials and never saves the replacement', async () => {
+test('an encryption failure preserves the old encrypted file and never saves the replacement', async () => {
   const f = await fixture()
   try {
     await f.store.save(vault)
+    const original = await readFile(f.filePath)
     f.crypto.setFailEncryption(true)
-    assert.equal(await f.store.save(vault), false)
-    assert.equal(await f.store.load(), null)
+    assert.equal(await f.store.save(pendingVault), false)
+    assert.deepEqual(await readFile(f.filePath), original)
+    assert.deepEqual(await f.store.load(), vault)
   } finally {
     await f.cleanup()
   }
 })
 
-test('saving an empty vault removes credentials even without encryption', async () => {
+test('empty-vault deletion never asks the keychain for access', async () => {
   const f = await fixture()
   try {
     await f.store.save(vault)
     assert.equal(await f.store.save({ version: 2 }), true)
     assert.equal(await f.store.load(), null)
-    f.crypto.setAvailable(false)
-    assert.equal(await f.store.save({ version: 2 }), false)
+    await f.store.save(vault)
+    const locked = createSecureAuthStore(f.filePath, {
+      ...f.crypto,
+      isAvailable: () => assert.fail('deletion must not access the keychain')
+    })
+    assert.equal(await locked.save({ version: 2 }), true)
+    assert.equal(await locked.load(), null)
   } finally {
     await f.cleanup()
   }
@@ -221,7 +230,7 @@ test('credential cleanup failures are reported rather than treated as logout suc
   try {
     await mkdir(f.filePath, { recursive: true })
     f.crypto.setAvailable(false)
-    await assert.rejects(f.store.save(vault))
+    await assert.rejects(f.store.save({ version: 2 }))
   } finally {
     await f.cleanup()
   }

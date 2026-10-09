@@ -4,7 +4,7 @@
 
 ## 安装包
 
-- 从 [Koala 1.4.4 Release](https://github.com/Pipimax36/Koalamo/releases/tag/v1.4.4) 下载客户端和 `koala-services-1.0.4.zip`，ZIP 的 SHA-256 校验文件一并提供。
+- 从 [Koala 1.4.5 Release](https://github.com/Pipimax36/Koala.Clash/releases/tag/v1.4.5) 下载客户端和 `koala-services-1.0.4.zip`，ZIP 的 SHA-256 校验文件一并提供。
 - 本地生成插件包：`node scripts/package-whmcs-services.mjs`，输出至 `output/whmcs-services/`。
 
 客户端 1.4.4 支持导入后自动启用订阅。macOS 包使用临时签名，尚未进行 Apple 公证。

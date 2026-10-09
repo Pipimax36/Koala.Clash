@@ -24,6 +24,7 @@ import {
   restartMihomoConnections
 } from '../core/mihomoApi'
 import { checkAutoRun, disableAutoRun, enableAutoRun } from '../sys/autoRun'
+import { getAppConfigSecret } from '../config/app'
 import {
   getAppConfig,
   patchAppConfig,
@@ -125,6 +126,7 @@ import { setLanguage } from './i18n'
 import { updateApplicationMenu } from '../resolve/menu'
 import {
   authGetState,
+  authRestoreSession,
   authLogin,
   authReopenLogin,
   authLogout,
@@ -165,6 +167,7 @@ export function registerIpcMainHandlers(): void {
   // Only the main window's top-level renderer may initiate account operations.
   for (const [channel, handler] of Object.entries({
     authGetState,
+    authRestoreSession,
     authLogin,
     authReopenLogin,
     authLogout,
@@ -224,6 +227,7 @@ export function registerIpcMainHandlers(): void {
   ipcMain.handle('enableAutoRun', ipcErrorWrapper(enableAutoRun))
   ipcMain.handle('disableAutoRun', ipcErrorWrapper(disableAutoRun))
   ipcMain.handle('getAppConfig', (_e, force) => ipcErrorWrapper(getAppConfig)(force))
+  ipcMain.handle('getSystemCorePath', () => ipcErrorWrapper(getAppConfigSecret)('systemCorePath'))
   ipcMain.handle('patchAppConfig', (_e, config) => ipcErrorWrapper(patchAppConfig)(config))
   ipcMain.handle('getControledMihomoConfig', (_e, force) =>
     ipcErrorWrapper(getControledMihomoConfig)(force)

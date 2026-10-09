@@ -1,5 +1,10 @@
 type CoreStartupIssue = {
-  reason: 'tun-route-conflict' | 'tun-permission-denied' | 'tun-start-failed' | 'port-in-use'
+  reason:
+    | 'tun-route-conflict'
+    | 'tun-permission-denied'
+    | 'tun-start-failed'
+    | 'tun-read-failed'
+    | 'port-in-use'
   port?: number
 }
 

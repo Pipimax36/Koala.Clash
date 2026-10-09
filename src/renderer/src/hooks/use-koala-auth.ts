@@ -4,7 +4,8 @@ import {
   authGetState,
   authLogin,
   authLogout,
-  authReopenLogin
+  authReopenLogin,
+  authRestoreSession
 } from '@renderer/utils/ipc'
 
 const signedOut: KoalaAuthState = { status: 'signed-out', persistence: 'none' }
@@ -13,6 +14,7 @@ export function useKoalaAuth() {
   const [state, setState] = useState<KoalaAuthState>(signedOut)
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
+  const [restoring, setRestoring] = useState(false)
   const mounted = useRef(false)
   const revision = useRef(0)
   const actionPending = useRef(false)
@@ -76,6 +78,21 @@ export function useKoalaAuth() {
     state,
     loading,
     busy,
+    restoring,
+    openAccount: () =>
+      run(async () => {
+        setRestoring(true)
+        let restored: KoalaAuthState
+        try {
+          restored = await authRestoreSession()
+        } finally {
+          if (mounted.current) setRestoring(false)
+        }
+        if (mounted.current && restored.status === 'signed-out' && !restored.error) {
+          return authLogin()
+        }
+        return restored
+      }),
     login: () => run(authLogin),
     reopenLogin: () => run(authReopenLogin),
     logout: () => run(authLogout),

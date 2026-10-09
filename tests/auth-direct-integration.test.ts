@@ -21,14 +21,25 @@ test('direct login joins browser callback, real JWT verification, encrypted pers
   t.after(() => rm(directory, { recursive: true, force: true }))
   const filePath = join(directory, 'session.enc')
   const encryptedValues = new Map<string, string>()
+  let encryptionChecks = 0
+  let encryptions = 0
+  let available = true
+  let decryptionDenied = false
   const store = createSecureAuthStore(filePath, {
-    isAvailable: () => true,
+    isAvailable: () => {
+      encryptionChecks++
+      return available
+    },
     encrypt: (value) => {
+      encryptions++
       const key = randomBytes(48)
       encryptedValues.set(key.toString('hex'), value)
       return key
     },
-    decrypt: (key) => encryptedValues.get(key.toString('hex'))!
+    decrypt: (key) => {
+      if (decryptionDenied) throw new Error('Simulated keychain refusal')
+      return encryptedValues.get(key.toString('hex'))!
+    }
   })
   const { privateKey, publicKey } = generateKeyPairSync('rsa', { modulusLength: 2048 })
   const jwk = { ...publicKey.export({ format: 'jwk' }), kid: 'integration-key', use: 'sig' }
@@ -125,11 +136,34 @@ test('direct login joins browser callback, real JWT verification, encrypted pers
     onChange: (state) => publicStates.push(state)
   })
   t.after(restarted.dispose)
-  assert.equal((await restarted.getState()).user?.name, 'Customer')
+  const initialChecks = encryptionChecks
+  const initialRequests = requests.length
+  const initialEncryptions = encryptions
+  await restarted.getState()
+  await restarted.getState()
+  assert.equal(encryptionChecks, initialChecks, 'startup and focus must not access the keychain')
+  assert.equal(requests.length, initialRequests)
+  for (const deniedByAvailability of [true, false]) {
+    available = !deniedByAvailability
+    decryptionDenied = !deniedByAvailability
+    assert.equal((await restarted.restoreSession()).error, 'storage-error')
+    assert.equal(await readFile(filePath, 'utf8'), envelope, 'denial preserves the encrypted vault')
+    assert.equal(requests.length, initialRequests, 'an unreadable vault never reaches WHMCS')
+    const deniedChecks = encryptionChecks
+    await restarted.getState()
+    assert.equal(encryptionChecks, deniedChecks, 'focus cannot repeat a declined prompt')
+  }
+  decryptionDenied = false
+  assert.equal((await restarted.restoreSession()).user?.name, 'Customer')
+  assert.equal(encryptions, initialEncryptions, 'restore does not encrypt the existing vault again')
+  assert.equal(await readFile(filePath, 'utf8'), envelope)
   assert.equal((await restarted.serviceSession()).idToken, idToken)
   assert.equal(requests.at(-1), '/oauth/userinfo.php')
   const requestCount = requests.length
+  const checksBeforeLogout = encryptionChecks
+  available = false
   await restarted.logout()
+  assert.equal(encryptionChecks, checksBeforeLogout, 'logout deletes without keychain access')
   assert.equal(await store.load(), null)
   assert.equal(
     requests.length,

@@ -21,6 +21,8 @@ function fixture(initial: AuthVault | null = null) {
   let encrypted = true
   let prepareError: Error | undefined
   let loadError = false
+  let loads = 0
+  let saves = 0
   let restore = async (_value: AuthCredentials): Promise<AuthCredentials> => issued(clock)
   const urls: URL[] = []
   const changes: KoalaAuthState[] = []
@@ -31,10 +33,12 @@ function fixture(initial: AuthVault | null = null) {
     now: () => clock,
     store: {
       load: async () => {
+        loads++
         if (loadError) throw Error('private storage details')
         return vault && structuredClone(vault)
       },
       save: async (next) => {
+        saves++
         vault = encrypted ? structuredClone(next) : null
         return encrypted
       }
@@ -68,6 +72,8 @@ function fixture(initial: AuthVault | null = null) {
     restores,
     vault: () => vault,
     prepares: () => prepares,
+    loads: () => loads,
+    saves: () => saves,
     clock: (value: number) => {
       clock = value
     },
@@ -77,8 +83,8 @@ function fixture(initial: AuthVault | null = null) {
     prepareError: (value: Error) => {
       prepareError = value
     },
-    loadError: () => {
-      loadError = true
+    loadError: (value = true) => {
+      loadError = value
     },
     restore: (value: typeof restore) => {
       restore = value
@@ -178,7 +184,71 @@ test('pending nonce and verifier survive restart for the same provider callback'
   assert.deepEqual(restarted.exchanges[0].pending, original.vault()!.pending)
 })
 
-test('concurrent startup reads validate the remembered identity once before publishing signed-in', async (t) => {
+test('a declined callback restore keeps the pending attempt intact for retry', async (t) => {
+  const original = fixture()
+  t.after(original.app.dispose)
+  await original.app.login()
+  const pendingVault = structuredClone(original.vault())
+  const restarted = fixture(pendingVault)
+  t.after(restarted.app.dispose)
+  restarted.loadError()
+  await restarted.app.acceptCallback(original.callback())
+  assert.equal((await restarted.app.getState()).error, 'storage-error')
+  assert.deepEqual(restarted.vault(), pendingVault)
+  assert.equal(restarted.saves(), 0)
+  assert.equal(restarted.exchanges.length, 0)
+  restarted.loadError(false)
+  await restarted.app.acceptCallback(original.callback())
+  assert.equal((await restarted.app.getState()).status, 'signed-in')
+  assert.equal(restarted.exchanges.length, 1)
+})
+
+test('startup and focus reads stay in memory until account restoration is requested', async (t) => {
+  const f = fixture({ version: 2, session: issued() })
+  t.after(f.app.dispose)
+  assert.ok(
+    (await Promise.all([f.app.getState(), f.app.getState()])).every(
+      (state) => state.status === 'signed-out'
+    )
+  )
+  assert.equal(f.loads(), 0)
+  assert.equal(f.restores.length, 0)
+  assert.equal(f.saves(), 0)
+  assert.equal((await f.app.restoreSession()).status, 'signed-in')
+  await f.app.getState()
+  await f.app.restoreSession()
+  assert.equal(f.loads(), 1)
+  assert.equal(f.restores.length, 1)
+  assert.equal(f.saves(), 0, 'restoring an encrypted vault does not require another encryption')
+})
+
+test('refusing account storage preserves credentials and retries only after an explicit action', async (t) => {
+  const initial: AuthVault = { version: 2, session: issued() }
+  const f = fixture(initial)
+  t.after(f.app.dispose)
+  f.loadError()
+  assert.equal((await f.app.restoreSession()).error, 'storage-error')
+  assert.deepEqual(f.vault(), initial)
+  assert.equal(f.saves(), 0)
+  await f.app.getState()
+  await f.app.getState()
+  assert.equal(f.loads(), 1, 'focus does not retry a rejected keychain request')
+  assert.equal((await f.app.login()).error, 'storage-error')
+  assert.equal(f.urls.length, 0)
+  assert.deepEqual(f.vault(), initial, 'failed recovery must not replace an existing account')
+  f.loadError(false)
+  assert.equal((await f.app.restoreSession()).status, 'signed-in')
+})
+
+test('service requests explicitly restore a cached account without requiring a startup restore', async (t) => {
+  const f = fixture({ version: 2, session: issued() })
+  t.after(f.app.dispose)
+  assert.equal((await f.app.serviceSession()).identity, issued().user.id)
+  assert.equal(f.loads(), 1)
+  assert.equal(f.restores.length, 1)
+})
+
+test('concurrent explicit restores validate the remembered identity once before publishing signed-in', async (t) => {
   const f = fixture({
     version: 2,
     session: { ...issued(), user: { id: 'verified-subject', name: 'Cached name' } }
@@ -196,8 +266,17 @@ test('concurrent startup reads validate the remembered identity once before publ
         started()
       })
   )
-  const states = Promise.all([f.app.getState(), f.app.getState(), f.app.getState()])
+  const states = Promise.all([
+    f.app.restoreSession(),
+    f.app.restoreSession(),
+    f.app.restoreSession()
+  ])
   await began
+  assert.equal(
+    (await f.app.getState()).status,
+    'signed-out',
+    'memory reads do not wait for restoration'
+  )
   assert.equal(f.restores.length, 1)
   assert.ok(f.changes.every((state) => state.status !== 'signed-in'))
   resolve(issued())
@@ -207,7 +286,7 @@ test('concurrent startup reads validate the remembered identity once before publ
 test('expired credentials are cleared without restore or token refresh; running sessions also expire', async (t) => {
   const expired = fixture({ version: 2, session: { ...issued(), expiresAt: startTime } })
   t.after(expired.app.dispose)
-  assert.equal((await expired.app.getState()).error, 'session-expired')
+  assert.equal((await expired.app.restoreSession()).error, 'session-expired')
   assert.equal(expired.restores.length, 0)
   assert.equal(expired.vault()?.session, undefined)
   const active = fixture()
@@ -230,7 +309,7 @@ test('a failed restore discards cached identity and credentials instead of claim
   f.restore(async () => {
     throw new AuthRequestError('network-error')
   })
-  assert.deepEqual(await f.app.getState(), {
+  assert.deepEqual(await f.app.restoreSession(), {
     status: 'signed-out',
     persistence: 'none',
     error: 'network-error'
@@ -248,7 +327,7 @@ test('long-lived provider sessions schedule expiry across the Node timer limit',
   t.after(f.app.dispose)
   t.mock.timers.enable({ apis: ['setTimeout'] })
   f.restore(async (value) => value)
-  assert.equal((await f.app.getState()).status, 'signed-in')
+  assert.equal((await f.app.restoreSession()).status, 'signed-in')
 
   f.clock(startTime + maxDelay)
   t.mock.timers.tick(maxDelay)
@@ -271,7 +350,7 @@ test('missing provider configuration stops before browser opening and exposes on
   const unreadable = fixture()
   t.after(unreadable.app.dispose)
   unreadable.loadError()
-  assert.equal((await unreadable.app.getState()).error, 'storage-error')
+  assert.equal((await unreadable.app.restoreSession()).error, 'storage-error')
   assert.ok(!JSON.stringify(unreadable.changes).includes('private storage details'))
 })
 

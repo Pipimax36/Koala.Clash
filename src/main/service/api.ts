@@ -7,9 +7,7 @@ let serviceAxios: AxiosInstance | null = null
 let keyManager: KeyManager | null = null
 
 export const initServiceAPI = (km: KeyManager): void => {
-  keyManager = km
-
-  serviceAxios = axios.create({
+  const instance = axios.create({
     baseURL: 'http://localhost',
     socketPath: serviceIpcPath(),
     timeout: 15000,
@@ -18,10 +16,10 @@ export const initServiceAPI = (km: KeyManager): void => {
     }
   })
 
-  serviceAxios.interceptors.request.use((config) => {
-    if (keyManager?.isInitialized()) {
+  instance.interceptors.request.use((config) => {
+    if (km.isInitialized()) {
       const timestamp = Math.floor(Date.now() / 1000).toString()
-      const signature = keyManager.signData(timestamp)
+      const signature = km.signData(timestamp)
 
       config.headers['X-Timestamp'] = timestamp
       config.headers['X-Signature'] = signature
@@ -30,7 +28,7 @@ export const initServiceAPI = (km: KeyManager): void => {
     return config
   })
 
-  serviceAxios.interceptors.response.use(
+  instance.interceptors.response.use(
     (response) => response.data,
     (error) => {
       if (error.response?.data) {
@@ -39,9 +37,13 @@ export const initServiceAPI = (km: KeyManager): void => {
       return Promise.reject(error)
     }
   )
+  keyManager = km
+  serviceAxios = instance
 }
 
-export const getServiceAxios = (): AxiosInstance => {
+export const getServiceAxios = async (): Promise<AxiosInstance> => {
+  const { initKeyManager } = await import('./manager')
+  await initKeyManager()
   if (!serviceAxios) {
     throw new Error(t('error.serviceApiNotInitialized'))
   }
@@ -56,37 +58,37 @@ export const getKeyManager = (): KeyManager => {
 }
 
 export const ping = async (): Promise<Record<string, unknown>> => {
-  const instance = getServiceAxios()
+  const instance = await getServiceAxios()
   return await instance.get('/ping')
 }
 
 export const test = async (): Promise<Record<string, unknown>> => {
-  const instance = getServiceAxios()
+  const instance = await getServiceAxios()
   return await instance.get('/test')
 }
 
 export const getCoreStatus = async (): Promise<Record<string, unknown>> => {
-  const instance = getServiceAxios()
+  const instance = await getServiceAxios()
   return await instance.get('/core')
 }
 
 export const startCore = async (): Promise<Record<string, unknown>> => {
-  const instance = getServiceAxios()
+  const instance = await getServiceAxios()
   return await instance.post('/core/start')
 }
 
 export const stopCore = async (): Promise<Record<string, unknown>> => {
-  const instance = getServiceAxios()
+  const instance = await getServiceAxios()
   return await instance.post('/core/stop')
 }
 
 export const restartCore = async (): Promise<Record<string, unknown>> => {
-  const instance = getServiceAxios()
+  const instance = await getServiceAxios()
   return await instance.post('/core/restart')
 }
 
 export const getProxyStatus = async (): Promise<Record<string, unknown>> => {
-  const instance = getServiceAxios()
+  const instance = await getServiceAxios()
   return await instance.get('/sysproxy/status')
 }
 
@@ -95,7 +97,7 @@ export const setPac = async (
   device?: string,
   onlyActiveDevice?: boolean
 ): Promise<void> => {
-  const instance = getServiceAxios()
+  const instance = await getServiceAxios()
   return await instance.post('/sysproxy/pac', { url, device, only_active_device: onlyActiveDevice })
 }
 
@@ -105,7 +107,7 @@ export const setProxy = async (
   device?: string,
   onlyActiveDevice?: boolean
 ): Promise<void> => {
-  const instance = getServiceAxios()
+  const instance = await getServiceAxios()
   return await instance.post('/sysproxy/proxy', {
     server,
     bypass,
@@ -115,11 +117,11 @@ export const setProxy = async (
 }
 
 export const disableProxy = async (device?: string, onlyActiveDevice?: boolean): Promise<void> => {
-  const instance = getServiceAxios()
+  const instance = await getServiceAxios()
   return await instance.post('/sysproxy/disable', { device, only_active_device: onlyActiveDevice })
 }
 
 export const setSysDns = async (device?: string, servers?: string[]): Promise<void> => {
-  const instance = getServiceAxios()
+  const instance = await getServiceAxios()
   return await instance.post('/sys/dns/set', { servers, device })
 }

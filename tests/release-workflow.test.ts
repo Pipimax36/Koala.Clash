@@ -43,7 +43,7 @@ test('release notes and legacy metadata retain the real tag and project reposito
     const notes = readFileSync(path.join(fixture, 'changelog.md'), 'utf8')
     assert.ok(
       notes.includes(
-        'https://github.com/Pipimax36/Koalamo/releases/download/v1.4.2/Koala.Clash_arm64.pkg'
+        'https://github.com/Pipimax36/Koala.Clash/releases/download/v1.4.2/Koala.Clash_arm64.pkg'
       )
     )
     assert.ok(!notes.includes('coolcoala/koala-clash'))

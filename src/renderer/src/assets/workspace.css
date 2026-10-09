@@ -118,7 +118,7 @@
   letter-spacing: -0.2px;
 }
 .ui-sidebar {
-  width: 144px;
+  width: 168px;
   flex-shrink: 0;
   padding: 18px 10px 14px;
   display: flex;
@@ -130,12 +130,18 @@
 .ui-sidebar-brand {
   display: flex;
   align-items: center;
+  min-width: 0;
   gap: 8px;
   padding: 0 9px 26px;
-  font-size: 17px;
+  font-size: 16px;
   font-weight: 600;
   letter-spacing: -0.3px;
   white-space: nowrap;
+}
+.ui-sidebar-brand > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .ui-brand-mark {
   display: block;
@@ -183,21 +189,26 @@
 }
 .ui-sidebar-foot {
   margin-top: auto;
-  padding: 22px 9px 0;
+  padding: 22px 10px 0;
   color: var(--sidebar-muted);
   font-size: 11px;
 }
 .ui-sidebar-core {
-  display: flex;
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
   align-items: center;
   gap: 10px;
   margin-top: 8px;
+}
+.ui-sidebar-core > .ui-dot {
+  justify-self: center;
 }
 .ui-sidebar-core .ui-dot[data-state='on'] {
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--success) 14%, transparent);
 }
 .ui-sidebar-foot p {
   margin-top: 5px;
+  margin-left: 26px;
 }
 .ui-sidebar[data-collapsed='true'] {
   width: 48px;
@@ -551,6 +562,11 @@
   background-image: none;
   box-shadow: 0 1px 2px #0000000a;
 }
+.ui-home-mode-tabs [data-slot='tabs-trigger'] {
+  min-width: 96px;
+  padding-inline: 14px;
+  font-size: 12px;
+}
 .ui-outbound-switcher {
   display: flex;
   gap: 2px;
@@ -855,9 +871,6 @@ summary:focus-visible,
   white-space: pre;
 }
 @media (max-width: 700px) {
-  .ui-sidebar {
-    width: 132px;
-  }
   .ui-app-topbar {
     padding-inline: 16px;
   }

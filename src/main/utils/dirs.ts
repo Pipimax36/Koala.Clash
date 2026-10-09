@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, readdirSync } from 'fs'
 import { app } from 'electron'
 import path from 'path'
 import { execSync } from 'child_process'
-import { getAppConfigSync } from '../config/app'
+import { getAppConfigSync, getAppConfigSecretSync } from '../config/app'
 import { checkCorePermissionSync } from '../core/manager'
 import { t } from './i18n'
 import { resolveMacCorePath } from '../core/core-permissions'
@@ -112,8 +112,7 @@ export function mihomoSourcePath(core: 'mihomo' | 'mihomo-alpha'): string {
 }
 
 function systemCorePath(): string {
-  const { systemCorePath = '' } = getAppConfigSync()
-  return systemCorePath
+  return getAppConfigSecretSync('systemCorePath')
 }
 
 export function servicePath(): string {

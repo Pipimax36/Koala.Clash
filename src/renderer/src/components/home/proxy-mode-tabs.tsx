@@ -5,7 +5,13 @@ import ConfirmModal from '@renderer/components/base/base-confirm'
 import { useProxyControl } from '@renderer/hooks/use-proxy-control'
 import type { ProxyMode } from '@renderer/utils/proxy-control'
 
-export default function ProxyModeTabs() {
+export default function ProxyModeTabs({
+  confirmWhenConnected = true,
+  disabled = false
+}: {
+  confirmWhenConnected?: boolean
+  disabled?: boolean
+}) {
   const { t } = useTranslation()
   const { mode, enabled, busy, ready, apply } = useProxyControl()
   const [pending, setPending] = useState<ProxyMode | null>(null)
@@ -16,17 +22,21 @@ export default function ProxyModeTabs() {
         activationMode="manual"
         onValueChange={(value) => {
           const next = value as ProxyMode
-          if (next === mode || busy) return
-          if (enabled) setPending(next)
-          else void apply(next)
+          if (next === mode || busy || !ready || disabled) return
+          if (enabled && confirmWhenConnected) setPending(next)
+          else void apply(next, enabled ? true : undefined)
         }}
       >
-        <TabsList className="ui-mode-tabs w-full" aria-label={t('redesign.proxyMode')}>
-          <TabsTrigger disabled={busy || !ready} className="flex-1" value="sysproxy">
-            {t('redesign.defaultMode')}
+        <TabsList
+          className="ui-mode-tabs w-full"
+          aria-label={t('redesign.proxyMode')}
+          aria-busy={busy}
+        >
+          <TabsTrigger disabled={busy || !ready || disabled} className="flex-1" value="sysproxy">
+            {t('redesign.systemProxyShort')}
           </TabsTrigger>
-          <TabsTrigger disabled={busy || !ready} className="flex-1" value="tun">
-            {t('redesign.tunMode')}
+          <TabsTrigger disabled={busy || !ready || disabled} className="flex-1" value="tun">
+            {t('redesign.tunModeShort')}
           </TabsTrigger>
         </TabsList>
       </Tabs>

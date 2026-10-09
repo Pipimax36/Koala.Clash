@@ -11,14 +11,14 @@ export function encryptString(plainText: string): string {
   }
 
   if (!safeStorage.isEncryptionAvailable()) {
-    return plainText
+    throw new Error('Secure storage is unavailable')
   }
 
   try {
     const buffer = safeStorage.encryptString(plainText)
     return ENCRYPTED_PREFIX + buffer.toString('base64')
-  } catch (e) {
-    return plainText
+  } catch {
+    throw new Error('Unable to encrypt protected settings')
   }
 }
 
@@ -30,15 +30,15 @@ export function decryptString(encryptedText: string): string {
   }
 
   if (!safeStorage.isEncryptionAvailable()) {
-    return encryptedText.substring(ENCRYPTED_PREFIX.length)
+    throw new Error('Secure storage is unavailable')
   }
 
   try {
     const base64Data = encryptedText.substring(ENCRYPTED_PREFIX.length)
     const buffer = Buffer.from(base64Data, 'base64')
     return safeStorage.decryptString(buffer)
-  } catch (e) {
-    return ''
+  } catch {
+    throw new Error('Unable to decrypt protected settings')
   }
 }
 

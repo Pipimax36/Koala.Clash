@@ -68,7 +68,7 @@ export default {
       'configuration-error': '登录配置尚未完成，请联系应用提供方。',
       'identity-invalid': '登录验证未通过，请重新登录。',
       'server-error': '登录服务暂时不可用，请稍后重试。',
-      'storage-error': '无法保存登录状态，请重试。'
+      'storage-error': '暂时无法访问登录信息，请重试。'
     }
   },
   redesign: {
@@ -303,6 +303,7 @@ export default {
     tunRouteConflict: '虚拟网卡路由已被占用。请先关闭其他代理或 VPN 的虚拟网卡，再重试。',
     tunPermissionDenied: '系统拒绝创建虚拟网卡。请在内核页完成授权后重试。',
     tunStartupFailed: '虚拟网卡启动失败，请查看内核日志中的具体错误。',
+    tunReadFailed: '虚拟网卡读取网络数据失败，请重启内核后重试。',
     proxyPortInUse: '代理端口 {{port}} 已被占用，请关闭占用程序或在内核设置中更换端口。',
     proxyPortConflict: '代理监听端口已被占用，请关闭占用程序或在内核设置中更换端口。',
     proxySettingsRestored: '原代理设置已恢复。',

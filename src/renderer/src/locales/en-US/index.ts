@@ -70,7 +70,7 @@ export default {
       'configuration-error': 'Sign-in is not configured. Please contact the app provider.',
       'identity-invalid': 'Unable to verify this sign-in. Please sign in again.',
       'server-error': 'The sign-in service is unavailable. Please try again later.',
-      'storage-error': 'Unable to save your sign-in state. Please try again.'
+      'storage-error': 'Unable to access your sign-in information. Please try again.'
     }
   },
   redesign: {
@@ -308,6 +308,8 @@ export default {
     tunPermissionDenied:
       'The system denied permission to create the virtual interface. Authorize the core, then retry.',
     tunStartupFailed: 'The virtual interface could not start. Check the core logs for details.',
+    tunReadFailed:
+      'The virtual interface could not read network traffic. Restart the core and try again.',
     proxyPortInUse:
       'Proxy port {{port}} is already in use. Close the application using it or change the port in Core settings.',
     proxyPortConflict:

@@ -32,7 +32,7 @@ test('checks this project release repository and preserves its exact v-prefixed 
   const { api, requests } = updater('1.4.1', 'v1.4.2')
   const latest = await api.checkUpdate()
   assert.equal(latest.version, 'v1.4.2')
-  assert.equal(requests[0], 'https://api.github.com/repos/Pipimax36/Koalamo/releases/latest')
+  assert.equal(requests[0], 'https://api.github.com/repos/Pipimax36/Koala.Clash/releases/latest')
 })
 
 for (const remote of ['1.4.0', 'v1.4.1', '1.4.1+build.2']) {
@@ -71,7 +71,7 @@ for (const scenario of [
     const data = Buffer.from('fixture installer')
     const digest = `sha256:${createHash('sha256').update(data).digest('hex')}`
     const url =
-      'https://github.com/Pipimax36/Koalamo/releases/download/v1.4.2/Koala.Clash_arm64.pkg'
+      'https://github.com/Pipimax36/Koala.Clash/releases/download/v1.4.2/Koala.Clash_arm64.pkg'
     const requests: string[] = []
     let installed = false
     let proxyDisabled = false
@@ -181,7 +181,7 @@ for (const scenario of [
       }
       assert.equal(
         requests[0],
-        'https://api.github.com/repos/Pipimax36/Koalamo/releases/tags/v1.4.2'
+        'https://api.github.com/repos/Pipimax36/Koala.Clash/releases/tags/v1.4.2'
       )
       assert.equal(installed, !corrupt && scenario !== 'installer failed')
       assert.equal(proxyDisabled, !corrupt)

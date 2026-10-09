@@ -5,11 +5,7 @@ import {
   getProfileStr,
   getAppConfig
 } from '../config'
-import {
-  mihomoProfileWorkDir,
-  mihomoWorkConfigPath,
-  mihomoWorkDir, rulePath
-} from '../utils/dirs'
+import { mihomoProfileWorkDir, mihomoWorkConfigPath, mihomoWorkDir, rulePath } from '../utils/dirs'
 import { parseYaml, stringifyYaml } from '../utils/yaml'
 import { copyFile, mkdir, readFile, writeFile } from 'fs/promises'
 import { deepMerge } from '../utils/merge'
@@ -145,6 +141,11 @@ export async function generateProfile(): Promise<{ logLevel: LogLevel }> {
   }
 
   const profile = deepMerge(JSON.parse(JSON.stringify(currentProfile)), configToMerge)
+  // Darwin's native TCP stack can stall while TUN still reports enabled. Use
+  // gVisor in automatic mode; an explicitly managed TUN stack remains authoritative.
+  if (process.platform === 'darwin' && !controlTun && profile.tun) {
+    profile.tun.stack = 'gvisor'
+  }
   const logLevel = isLogLevel(profile['log-level']) ? profile['log-level'] : 'info'
 
   const tunEnabled = profile.tun?.enable ?? false
